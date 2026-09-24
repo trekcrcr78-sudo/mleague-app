@@ -1,6 +1,6 @@
 // アプリ本体はキャッシュ優先、data.json は常にネットワーク優先（圏外なら前回のデータ）
-const CACHE = "mleague-v1";
-const SHELL = ["./", "index.html", "style.css", "app.js", "manifest.webmanifest", "icons/icon-192.png"];
+const CACHE = "mleague-v2";
+const SHELL = ["./", "index.html", "style.css", "app.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon.svg"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
