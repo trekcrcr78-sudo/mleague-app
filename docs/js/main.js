@@ -14,7 +14,7 @@ import { viewResults } from "./views/results.js";
 
 const VIEWS = {
   schedule: { title: "日程", render: viewSchedule, after: afterSchedule },
-  standings: { title: "順位", render: viewStandings, after: afterStandings },
+  standings: { title: "チーム順位", render: viewStandings, after: afterStandings },
   players: { title: "個人成績", render: viewPlayers },
   results: { title: "試合結果", render: viewResults },
 };
