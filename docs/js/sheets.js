@@ -140,7 +140,7 @@ function openFavPicker() {
   const pick = team => { setFav(team); closeSheet(); };
   show(() => [
     h("div", { class: "hero" }, h("div", {}, h("h2", { id: "sheet-title" }, "推しチーム"),
-      h("div", { class: "prow__meta" }, "日程・順位・個人成績で色付けして表示します"))),
+      h("div", { class: "prow__meta" }, "日程・順位で色付けして表示します"))),
     h("div", { class: "fav-grid", role: "radiogroup", "aria-label": "推しチーム" },
       state.data.standings.map(r => h("button", { class: "fav-opt", type: "button", role: "radio", "aria-checked": String(state.fav === r.team), onclick: () => pick(r.team) },
         h("span", { class: "fav-opt__radio", "aria-hidden": "true" }), teamShort(r.team)))),

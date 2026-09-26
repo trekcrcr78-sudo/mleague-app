@@ -15,7 +15,7 @@ function matchRow(m, tablesThatDay) {
     h("div", { class: "match__head" },
       tablesThatDay > 1 ? h("span", { class: "match__table" }, `${tableNo(m)}卓目`) : null,
       h("span", { class: "match__status" }, statusBadge(matchStatus(m)))),
-    h("div", { class: "match__teams" }, m.teams.map(teamTag)));
+    h("div", { class: "match__teams" }, m.teams.map(t => teamTag(t, { markFav: true }))));
 }
 
 export function viewSchedule() {

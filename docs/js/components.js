@@ -6,8 +6,9 @@ import { dayLabel, int, pct, pt, ptClass } from "./format.js";
 import { AWARD_SHORT, matchStatus, teamOfPlayer, teamShort, wikiSource } from "./model.js";
 import { state } from "./store.js";
 
-export function teamTag(id) {
-  return h("span", { class: "team-tag" + (id === state.fav ? " is-fav" : "") }, teamShort(id));
+// チーム名の札。推しチームの色付けは日程だけで使う（markFav: true）
+export function teamTag(id, { markFav = false } = {}) {
+  return h("span", { class: "team-tag" + (markFav && id === state.fav ? " is-fav" : "") }, teamShort(id));
 }
 
 export function statusBadge(st) {

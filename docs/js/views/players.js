@@ -44,7 +44,7 @@ function rankList(rows, sort, { meta, onOpen, badges = () => null }) {
   let rank = 0, prev;
   return h("section", { class: "card" }, h("ol", { class: "plist" }, rows.map((r, i) => {
     if (r.v[sort.k] !== prev) { rank = i + 1; prev = r.v[sort.k]; }
-    return h("li", { class: "prow" + (r.team === state.fav ? " is-fav" : ""), ...pressable(() => onOpen(r.name)) },
+    return h("li", { class: "prow", ...pressable(() => onOpen(r.name)) },
       h("span", { class: "prow__rank" }, rank),
       h("div", {}, h("div", { class: "prow__name" }, r.name, titleBadges(badges(r))), h("div", { class: "prow__meta" }, teamTag(r.team), meta(r))),
       h("div", { class: "prow__val " + (sort.k === "points" ? ptClass(r.v.points) : "") }, sort.fmt(r.v[sort.k]),
