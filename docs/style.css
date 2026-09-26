@@ -313,3 +313,20 @@ button { font: inherit; color: inherit; }
 .bar__fill { display: block; height: 100%; border-radius: 2px; }
 .bar__fill.is-pos { background: var(--pos); }
 .bar__fill.is-neg { background: var(--neg); }
+
+/* ---------- 個人タイトル ---------- */
+.title-badge { display: inline-block; margin-left: 6px; padding: 0 6px; border: 1px solid var(--axis); border-radius: 5px; font-size: 10.5px; font-weight: 700; line-height: 17px; color: var(--ink-2); vertical-align: 1px; white-space: nowrap; }
+.career__titles { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px; }
+.career__titles .title-badge { margin-left: 0; font-size: 10px; line-height: 15px; padding: 0 4px; }
+.titles { list-style: none; margin: 0; padding: 0; }
+.titles li { display: grid; grid-template-columns: 64px 1fr auto; gap: 10px; align-items: center; padding: 10px 14px; border-top: 1px solid var(--line); font-size: 14px; }
+.titles li:first-child { border-top: 0; }
+.titles__season { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.titles__award { font-weight: 700; }
+.titles__value { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+/* シーズン別の表は5列あるので、折り返さないよう余白を詰める */
+.career th, .career td { padding-left: 7px; padding-right: 7px; white-space: nowrap; }
+.career th:first-child, .career td:first-child { padding-left: 12px; }
+.career th:last-child, .career td:last-child { padding-right: 12px; }
+.career .bar { width: 56px; }
+.career__season .badge { padding: 0 6px; }

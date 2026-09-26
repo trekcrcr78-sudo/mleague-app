@@ -2,8 +2,8 @@
 
 import { actions } from "./actions.js";
 import { h, pressable } from "./dom.js";
-import { dayLabel, pt, ptClass } from "./format.js";
-import { matchStatus, teamOfPlayer, teamShort, wikiSource } from "./model.js";
+import { dayLabel, int, pct, pt, ptClass } from "./format.js";
+import { AWARD_SHORT, matchStatus, teamOfPlayer, teamShort, wikiSource } from "./model.js";
 import { state } from "./store.js";
 
 export function teamTag(id) {
@@ -48,6 +48,21 @@ export function sourceNote(seasons) {
   const links = seasons.map(s => [s, wikiSource(s)]).filter(([, url]) => url);
   if (!links.length) return null;
   return h("p", { class: "note source" }, "過去シーズンの成績の出典: 公式サイト、Wikipedia（",
-    links.map(([s, url], i) => [i ? "・" : "", h("a", { href: url, target: "_blank", rel: "noopener" }, s)]),
+    links.map(([s, url], i) => [i ? "・" : "", h("a", { href: url, target: "_blank", rel: "noopener" }, s === "titles" ? "個人タイトル" : s)]),
     "、CC BY-SA 4.0）");
+}
+
+export function titleBadges(awards) {
+  if (!awards?.length) return null;
+  return awards.map(a => h("span", { class: "title-badge" }, AWARD_SHORT[a] ?? a));
+}
+
+export function awardValue(t) {
+  if (t.value == null) return "";
+  if (t.award === "MVP") return `${pt(t.value)}pt`;
+  if (t.award === "最高スコア賞") return `${int(t.value)}点`;
+  if (t.award === "平均打点賞") return int(t.value);
+  if (t.award === "4着回避率賞") return pct(t.value);
+  if (t.award === "最多トップ賞") return `${int(t.value)}回`;
+  return String(t.value);
 }

@@ -129,3 +129,70 @@ def parse_season(html):
         if row.get("name") and row.get("games"):
             rows.append(row)
     return rows
+
+
+# ---------- 個人タイトル（「Mリーグ」記事の「個人タイトル」節） ----------
+AWARDS = {
+    "MVP": "MVP", "個人スコア": "MVP",
+    "平均打点": "平均打点賞", "最高スコア": "最高スコア賞",
+    "4着回避率": "4着回避率賞", "最多トップ": "最多トップ賞",
+}
+
+
+def _api(params):
+    q = urllib.parse.urlencode({**params, "format": "json", "formatversion": 2})
+    req = urllib.request.Request(f"{API}?{q}", headers={"User-Agent": UA})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        data = json.loads(r.read().decode("utf-8"))
+    time.sleep(1.0)
+    if "error" in data:
+        raise ValueError(data["error"].get("info"))
+    return data["parse"]
+
+
+def fetch_titles_html():
+    sections = _api({"action": "parse", "page": "Mリーグ", "prop": "sections"})["sections"]
+    index = next(s["index"] for s in sections if clean_label(s["line"]) == "個人タイトル")
+    return _api({"action": "parse", "page": "Mリーグ", "prop": "text", "section": index})["text"]
+
+
+def award_name(label):
+    for key, award in AWARDS.items():
+        if key in label:
+            return award
+    return None  # 優勝など、表示しないもの
+
+
+def parse_titles(html):
+    """[{season, award, name, team, value}] を返す。表は年代ごとに列（賞の種類）が違う。"""
+    soup = BeautifulSoup(html, "html.parser")
+    titles = []
+    for table in soup.find_all("table"):
+        groups = {}
+        for tr in table.find_all("tr"):
+            cells = tr.find_all(["th", "td"])
+            first = clean_label(cells[0].get_text(" ")) if cells else ""
+            # 「年度」行が出てくるたびに、賞の名前（colspan=3）を列ごとに展開し直す（途中で賞の種類が変わる）
+            if first == "年度":
+                groups, c = {}, 0
+                for cell in cells:
+                    span = int(cell.get("colspan", 1))
+                    for dc in range(span):
+                        groups[c + dc] = clean_label(cell.get_text(" "))
+                    c += span
+                continue
+            m = re.match(r"(\d{4}-\d{2})", first)
+            if not m:
+                continue  # 「選手・チーム・Pt」の2段目の見出しなど
+            cells = [clean_label(x.get_text(" ")) for x in cells]
+            for start in range(1, len(cells) - 2, 3):  # 選手・チーム・値 の3列ずつ
+                award = award_name(groups.get(start, ""))
+                name, team, value = cells[start:start + 3]
+                if not award or not name:
+                    continue
+                try:
+                    tid = team_id(team)
+                except ValueError:
+                    tid = team
+                titles.append({"season": m.group(1), "award": award, "name": name, "team": tid, "value": wiki_num(value)})
+    return titles

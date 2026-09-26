@@ -10,13 +10,14 @@
 """
 import json
 import sys
+import urllib.parse
 from datetime import datetime, timedelta
 from pathlib import Path
 
 from common import BASE, JST, TEAMS, fetch, fetch_text, season_label
 from parse_history import parse_team_page, parse_team_regular_points
 from parse_live import parse_month, parse_standings, parse_stats, regular_stats_href, season_months
-from parse_wikipedia import article_url, fetch_article_html, parse_season
+from parse_wikipedia import article_url, fetch_article_html, fetch_titles_html, parse_season, parse_titles
 
 DOCS = Path(__file__).resolve().parent.parent / "docs"
 DATA = DOCS / "data.json"
@@ -77,7 +78,7 @@ def scrape_wikipedia(now, current_season, old_wiki):
     wanted = [season_label(y) for y in range(FIRST_SEASON, start)]
     fetched = old_wiki.get("fetchedAt")
     fresh = fetched and now - datetime.fromisoformat(fetched) < WIKI_REFRESH
-    if fresh and all(s in old_wiki.get("seasons", {}) for s in wanted):
+    if fresh and "titles" in old_wiki and all(s in old_wiki.get("seasons", {}) for s in wanted):
         return old_wiki
     seasons, sources, errors = {}, {}, []
     for s in wanted:
@@ -88,14 +89,28 @@ def scrape_wikipedia(now, current_season, old_wiki):
             errors.append(f"{s}: {e}")
             if s in old_wiki.get("seasons", {}):
                 seasons[s], sources[s] = old_wiki["seasons"][s], old_wiki["sources"][s]
+    try:
+        titles = parse_titles(fetch_titles_html())
+    except Exception as e:
+        errors.append(f"個人タイトル: {e}")
+        titles = old_wiki.get("titles", [])
+    sources["titles"] = "https://ja.wikipedia.org/wiki/" + urllib.parse.quote("Mリーグ") + "#" + urllib.parse.quote("個人タイトル")
     for e in errors:
         print("wikipedia:", e)
-    return {"fetchedAt": now.isoformat(timespec="seconds"), "license": "CC BY-SA 4.0", "sources": sources, "seasons": seasons}
+    return {"fetchedAt": now.isoformat(timespec="seconds"), "license": "CC BY-SA 4.0", "sources": sources,
+            "seasons": seasons, "titles": titles}
 
 
 def cross_check(players, wiki):
     """公式（チームページ）と Wikipedia の数字が合っているか。合わないものを返す。"""
     compared, mismatches = 0, []
+    for t in wiki.get("titles", []):  # MVP はその年の個人スコア1位のはず
+        if t["award"] != "MVP":
+            continue
+        row = next((r for r in wiki["seasons"].get(t["season"], []) if r["name"] == t["name"]), None)
+        compared += 1
+        if row is None or abs(row["points"] - t["value"]) > 0.05:
+            mismatches.append(f"{t['season']} MVP {t['name']}: タイトル表={t['value']} 成績表={row and row['points']}")
     for name, p in players.items():
         for off in p["regular"]:
             w = next((r for r in wiki["seasons"].get(off["season"], []) if r["name"] == name), None)

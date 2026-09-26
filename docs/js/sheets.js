@@ -1,10 +1,10 @@
 // 下から出てくる詳細シート（試合・選手・チーム）
 
 import { actions } from "./actions.js";
-import { gameBlock, note, resultCard, sourceNote, stat, teamTag } from "./components.js";
+import { awardValue, gameBlock, note, resultCard, sourceNote, stat, teamTag, titleBadges } from "./components.js";
 import { $, h, pressable, segmented } from "./dom.js";
 import { dayLabel, dec2, int, pct, pt, ptClass, round1 } from "./format.js";
-import { aggregate, allMatches, currentPlayer, isActive, playerLog, seasonRows, teamName, teamOfPlayer, teamShort } from "./model.js";
+import { aggregate, allMatches, currentPlayer, isActive, playerLog, seasonRows, teamName, teamOfPlayer, teamShort, titlesOf } from "./model.js";
 import { setFav, state } from "./store.js";
 
 let current = null; // 開いているシートの描画関数（データ更新時に描き直す）
@@ -75,6 +75,7 @@ function playerCareer(name, team, rows, tabs, highlight) {
   const total = aggregate(rows);
   if (!total) return [hero(name, [teamTag(team)]), tabs, h("p", { class: "empty" }, "通算成績はまだありません")];
   const maxAbs = Math.max(...rows.map(r => Math.abs(r.points || 0)), 1);
+  const titles = titlesOf(name);
   const span = total.firstSeason === total.lastSeason ? total.firstSeason : `${total.firstSeason}〜${isActive(name) ? "" : total.lastSeason}`;
   return [
     hero(name, [teamTag(team), `${span}・${total.seasons}シーズン`], total.points, "通算ポイント"),
@@ -83,19 +84,27 @@ function playerCareer(name, team, rows, tabs, highlight) {
       stat("半荘数", int(total.games)), stat("1半荘平均", pt(total.perGame), ptClass(total.perGame)), stat("平均着順", dec2(total.avgRank)),
       stat("トップ数", total.r1 == null ? "–" : `${int(total.r1)}回`), stat("トップ率", pct(total.topRate)), stat("4着回避率", pct(total.lastAvoidRate)),
       stat("最高スコア", int(total.bestScore)), stat("平均打点（目安）", int(total.avgWin))),
+    titles.length ? [
+      h("h3", { class: "section-title" }, `タイトル（${titles.length}）`),
+      h("section", { class: "card" }, h("ul", { class: "titles" }, titles.map(t => h("li", {},
+        h("span", { class: "titles__season" }, t.season),
+        h("span", { class: "titles__award" }, t.award),
+        h("span", { class: "titles__value" }, awardValue(t)))))),
+    ] : null,
     h("h3", { class: "section-title" }, "シーズン別"),
     h("section", { class: "card" }, h("table", { class: "career" },
       h("thead", {}, h("tr", {}, h("th", {}, "シーズン"), h("th", {}, "ポイント"), h("th", {}, "半荘"), h("th", {}, "トップ"), h("th", {}, "4着回避"))),
       h("tbody", {}, rows.map(r => h("tr", { class: (r.current ? "is-current" : "") + (r.season === highlight ? " is-highlight" : "") },
         h("td", {}, h("div", { class: "career__season" }, r.season, r.current ? h("span", { class: "badge badge--next" }, "今季") : null),
-          h("div", { class: "career__team" }, teamShort(r.team))),
+          h("div", { class: "career__team" }, teamShort(r.team)),
+          (seasonTitles => seasonTitles.length ? h("div", { class: "career__titles" }, titleBadges(seasonTitles)) : null)(titles.filter(t => t.season === r.season).map(t => t.award))),
         h("td", {}, h("div", { class: "career__pts " + ptClass(r.points) }, pt(r.points)),
           h("div", { class: "bar" }, h("span", { class: "bar__fill " + (r.points < 0 ? "is-neg" : "is-pos"), style: `width:${(Math.abs(r.points || 0) / maxAbs * 100).toFixed(1)}%` }))),
         h("td", {}, int(r.games)),
         h("td", {}, r.r1 == null ? "–" : int(r.r1)),
         h("td", {}, pct(r.lastAvoidRate))))))),
     note("レギュラーシーズンの成績です。チームは各シーズン当時の所属です。平均打点はアガリ回数が公開されていないため、半荘数で重み付けした目安です。"),
-    sourceNote(rows.filter(r => !r.current).map(r => r.season)),
+    sourceNote([...rows.filter(r => !r.current).map(r => r.season), ...(titles.length ? ["titles"] : [])]),
   ];
 }
 

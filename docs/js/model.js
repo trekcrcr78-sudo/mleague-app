@@ -167,3 +167,21 @@ export function chartSelection() {
   for (const r of state.data.standings) { if (sel.length >= 3) break; if (!sel.includes(r.team)) sel.push(r.team); }
   return sel;
 }
+
+// ---------- 個人タイトル（Wikipedia「Mリーグ」個人タイトル） ----------
+export const AWARD_ORDER = ["MVP", "最高スコア賞", "平均打点賞", "4着回避率賞", "最多トップ賞"];
+export const AWARD_SHORT = { "MVP": "MVP", "最高スコア賞": "最高スコア", "平均打点賞": "平均打点", "4着回避率賞": "4着回避", "最多トップ賞": "最多トップ" };
+const byAward = (a, b) => AWARD_ORDER.indexOf(a.award) - AWARD_ORDER.indexOf(b.award);
+
+export function titlesOf(name) {
+  return (state.history?.wiki?.titles ?? []).filter(t => t.name === name)
+    .sort((a, b) => b.season.localeCompare(a.season) || byAward(a, b));
+}
+export function titlesInSeason(season) {
+  const map = new Map();
+  for (const t of (state.history?.wiki?.titles ?? []).filter(t => t.season === season).sort(byAward)) {
+    if (!map.has(t.name)) map.set(t.name, []);
+    map.get(t.name).push(t.award);
+  }
+  return map;
+}

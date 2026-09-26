@@ -1,10 +1,10 @@
 // 個人成績タブ: 今季・シーズン別・通算（いずれもレギュラーシーズン）のランキング
 
 import { actions } from "../actions.js";
-import { note, sourceNote, teamTag } from "../components.js";
+import { note, sourceNote, teamTag, titleBadges } from "../components.js";
 import { chipRow, h, pressable } from "../dom.js";
 import { dec2, int, pct, pt, ptClass } from "../format.js";
-import { careerOf, isActive, pastSeasons, rosterNames, seasonTable, teamOfPlayer, teamShort } from "../model.js";
+import { careerOf, isActive, pastSeasons, rosterNames, seasonTable, teamOfPlayer, teamShort, titlesInSeason } from "../model.js";
 import { setPlayers, state } from "../store.js";
 
 // 今季: 公式の成績ページと同じ項目
@@ -39,14 +39,14 @@ const HISTORY_SORTS = [
   { k: "games", label: "半荘数", fmt: int, desc: true },
 ];
 
-function rankList(rows, sort, { meta, onOpen }) {
+function rankList(rows, sort, { meta, onOpen, badges = () => null }) {
   rows.sort((a, b) => (sort.desc ? (b.v[sort.k] ?? -Infinity) - (a.v[sort.k] ?? -Infinity) : (a.v[sort.k] ?? Infinity) - (b.v[sort.k] ?? Infinity)) || (b.v.points - a.v.points));
   let rank = 0, prev;
   return h("section", { class: "card" }, h("ol", { class: "plist" }, rows.map((r, i) => {
     if (r.v[sort.k] !== prev) { rank = i + 1; prev = r.v[sort.k]; }
     return h("li", { class: "prow" + (r.team === state.fav ? " is-fav" : ""), ...pressable(() => onOpen(r.name)) },
       h("span", { class: "prow__rank" }, rank),
-      h("div", {}, h("div", { class: "prow__name" }, r.name), h("div", { class: "prow__meta" }, teamTag(r.team), meta(r))),
+      h("div", {}, h("div", { class: "prow__name" }, r.name, titleBadges(badges(r))), h("div", { class: "prow__meta" }, teamTag(r.team), meta(r))),
       h("div", { class: "prow__val " + (sort.k === "points" ? ptClass(r.v.points) : "") }, sort.fmt(r.v[sort.k]),
         sort.k !== "points" ? h("small", { class: ptClass(r.v.points) }, pt(r.v.points) + "pt") : null));
   })));
@@ -62,7 +62,7 @@ export function viewPlayers() {
   const byTeam = r => ps.team === "all" || r.team === ps.team;
   const byWho = r => ps.who !== "active" || isActive(r.name);
 
-  let rows, sorts, meta, onOpen, notes;
+  let rows, sorts, meta, onOpen, notes, badges;
   if (scope === "season") {
     rows = state.data.players.filter(p => p.games > 0).map(p => ({ name: p.name, team: p.team, v: p }));
     sorts = SEASON_SORTS;
@@ -74,7 +74,9 @@ export function viewPlayers() {
     sorts = available(rows, HISTORY_SORTS);
     meta = r => `${int(r.v.games)}半荘` + (isActive(r.name) ? "" : "・現役外");
     onOpen = name => actions.openPlayer(name, { view: "career", highlight: pastSeason });
-    notes = [note(`${pastSeason}シーズンのレギュラーシーズンの成績です。チームは当時の所属です。`), sourceNote([pastSeason])];
+    const titles = titlesInSeason(pastSeason);
+    badges = r => titles.get(r.name);
+    notes = [note(`${pastSeason}シーズンのレギュラーシーズンの成績です。チームは当時の所属です。名前の横の印はそのシーズンの個人タイトルです。`), sourceNote([pastSeason])];
   } else {
     rows = rosterNames({ activeOnly: ps.who === "active" }).map(name => ({ name, team: teamOfPlayer(name), v: careerOf(name) })).filter(r => r.v);
     sorts = available(rows, HISTORY_SORTS);
@@ -93,6 +95,6 @@ export function viewPlayers() {
     chipRow([["all", "全チーム"], ...state.data.standings.map(r => [r.team, teamShort(r.team)])], ps.team, v => setPlayers({ team: v })));
 
   return [controls,
-    rows.length ? rankList(rows, sort, { meta, onOpen }) : h("p", { class: "empty" }, "該当する選手がいません"),
+    rows.length ? rankList(rows, sort, { meta, onOpen, badges }) : h("p", { class: "empty" }, "該当する選手がいません"),
     notes];
 }
