@@ -6,7 +6,7 @@
 
 出力:
   docs/data.json     今季のデータ（アプリが1分ごとに読み直す）
-  docs/history.json  過去シーズンの成績（--full のときだけ更新）
+  docs/history.json  過去シーズンの成績（--full のときだけ更新。Wikipedia は7日に1回だけ取り直す）
 """
 import json
 import sys
@@ -16,10 +16,13 @@ from pathlib import Path
 from common import BASE, JST, TEAMS, fetch, fetch_text, season_label
 from parse_history import parse_team_page, parse_team_regular_points
 from parse_live import parse_month, parse_standings, parse_stats, regular_stats_href, season_months
+from parse_wikipedia import article_url, fetch_article_html, parse_season
 
 DOCS = Path(__file__).resolve().parent.parent / "docs"
 DATA = DOCS / "data.json"
 HISTORY = DOCS / "history.json"
+WIKI_REFRESH = timedelta(days=7)
+FIRST_SEASON = 2018
 
 
 def load(path):
@@ -68,11 +71,53 @@ def scrape_current(now, full, old):
     }
 
 
+def scrape_wikipedia(now, current_season, old_wiki):
+    """過去シーズンの全選手の成績（Wikipedia）。前回から7日以内なら取り直さない。"""
+    start = int(current_season[:4])
+    wanted = [season_label(y) for y in range(FIRST_SEASON, start)]
+    fetched = old_wiki.get("fetchedAt")
+    fresh = fetched and now - datetime.fromisoformat(fetched) < WIKI_REFRESH
+    if fresh and all(s in old_wiki.get("seasons", {}) for s in wanted):
+        return old_wiki
+    seasons, sources, errors = {}, {}, []
+    for s in wanted:
+        try:
+            seasons[s] = parse_season(fetch_article_html(s))
+            sources[s] = article_url(s)
+        except Exception as e:  # 1シーズン失敗しても前回の分を使い続ける
+            errors.append(f"{s}: {e}")
+            if s in old_wiki.get("seasons", {}):
+                seasons[s], sources[s] = old_wiki["seasons"][s], old_wiki["sources"][s]
+    for e in errors:
+        print("wikipedia:", e)
+    return {"fetchedAt": now.isoformat(timespec="seconds"), "license": "CC BY-SA 4.0", "sources": sources, "seasons": seasons}
+
+
+def cross_check(players, wiki):
+    """公式（チームページ）と Wikipedia の数字が合っているか。合わないものを返す。"""
+    compared, mismatches = 0, []
+    for name, p in players.items():
+        for off in p["regular"]:
+            w = next((r for r in wiki["seasons"].get(off["season"], []) if r["name"] == name), None)
+            if w is None:
+                continue
+            compared += 1
+            for k in ("points", "games"):
+                if w.get(k) is None or abs(w[k] - off[k]) > 0.05:
+                    mismatches.append(f"{off['season']} {name} {k}: 公式={off[k]} Wikipedia={w.get(k)}")
+    return compared, mismatches
+
+
 def scrape_history(now, data, old):
     players = {}
     for tid, (_, _, slug) in TEAMS.items():
         players.update(parse_team_page(fetch(f"/teams/{slug}/"), tid))
     team_regular = parse_team_regular_points(fetch_text("/assets/js/main.bundle.js"))
+    wiki = scrape_wikipedia(now, data["season"], old.get("wiki") or {})
+    compared, mismatches = cross_check(players, wiki)
+    print(f"cross-check: {compared} rows compared, {len(mismatches)} mismatches")
+    for m in mismatches:
+        print("  mismatch:", m)
 
     # 今季の詳しい個人成績を保存しておき、翌シーズン以降も過去シーズンとして全項目を見られるようにする
     archive = dict(old.get("archive") or {})
@@ -83,6 +128,7 @@ def scrape_history(now, data, old):
         "players": players,
         "teamRegular": team_regular,
         "archive": archive,
+        "wiki": wiki,
     }
 
 

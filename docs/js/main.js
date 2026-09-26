@@ -29,8 +29,22 @@ function render() {
   fav.setAttribute("aria-label", state.fav && state.data ? `推しチーム: ${state.data.teams[state.fav]?.short}（変更する）` : "推しチームを選ぶ");
   if (!state.data) return;
   hideTooltip();
+  const scrolls = [...content.querySelectorAll(".chips")].map(r => r.scrollLeft);
   content.replaceChildren(...[v.render()].flat(Infinity).filter(Boolean));
+  keepChipsInView(scrolls);
   v.after?.();
+}
+
+// 横スクロールのボタン列: 描き直しても位置を保ち、選択中のボタンが隠れていれば見える位置まで寄せる
+function keepChipsInView(prev) {
+  content.querySelectorAll(".chips").forEach((row, i) => {
+    row.scrollLeft = prev[i] ?? 0;
+    const c = row.querySelector('[aria-pressed="true"]');
+    if (!c) return;
+    const left = c.offsetLeft - 16, right = c.offsetLeft + c.offsetWidth + 16 - row.clientWidth;
+    if (row.scrollLeft > left) row.scrollLeft = left;
+    else if (row.scrollLeft < right) row.scrollLeft = right;
+  });
 }
 
 // 状態が変わったら描き直す（データ更新時は開いているシートも）

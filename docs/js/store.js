@@ -13,7 +13,7 @@ export const state = {
   chartTeams: read("chartTeams", null), // グラフで強調するチーム（最大3）
   month: null,
   scheduleFilter: "all",
-  players: { scope: "season", sort: "points", team: "all" },
+  players: { scope: "season", pastSeason: null, who: "all", sort: "points", team: "all" },
   resultTeam: "all",
 };
 

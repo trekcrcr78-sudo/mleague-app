@@ -41,13 +41,20 @@ def norm(s):
     return re.sub(r"\s+", "", s or "")
 
 
+# 略称・旧表記（Wikipedia の表などで使われるもの）
+TEAM_ALIASES = {"RAIDEN": "T006", "格闘倶楽部": "T003", "KONAMI": "T003"}
+
+
 def team_id(name):
-    n = norm(re.sub(r"<br\s*/?>", "", name or ""))
+    n = norm(re.sub(r"<br\s*/?>", "", name or "")).replace("俱", "倶")
     for tid, (full, short, _) in TEAMS.items():
         if norm(full) == n:
             return tid
     for tid, (_, short, _) in TEAMS.items():
         if short in n:
+            return tid
+    for alias, tid in TEAM_ALIASES.items():
+        if alias in n:
             return tid
     raise ValueError(f"unknown team: {name!r}")
 

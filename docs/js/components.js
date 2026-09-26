@@ -3,7 +3,7 @@
 import { actions } from "./actions.js";
 import { h, pressable } from "./dom.js";
 import { dayLabel, pt, ptClass } from "./format.js";
-import { matchStatus, teamOfPlayer, teamShort } from "./model.js";
+import { matchStatus, teamOfPlayer, teamShort, wikiSource } from "./model.js";
 import { state } from "./store.js";
 
 export function teamTag(id) {
@@ -42,3 +42,12 @@ export function stat(label, value, cls = "") {
 
 export function note(text) { return h("p", { class: "note" }, text); }
 export function sectionTitle(text) { return h("h2", { class: "section-title" }, text); }
+
+// 過去シーズンの出典（Wikipedia, CC BY-SA 4.0）
+export function sourceNote(seasons) {
+  const links = seasons.map(s => [s, wikiSource(s)]).filter(([, url]) => url);
+  if (!links.length) return null;
+  return h("p", { class: "note source" }, "過去シーズンの成績の出典: 公式サイト、Wikipedia（",
+    links.map(([s, url], i) => [i ? "・" : "", h("a", { href: url, target: "_blank", rel: "noopener" }, s)]),
+    "、CC BY-SA 4.0）");
+}
