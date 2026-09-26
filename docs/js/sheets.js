@@ -37,7 +37,7 @@ function hero(title, sub, value, valueLabel) {
 
 // ---------- 試合 ----------
 function openMatch(m) {
-  show(() => [hero(`${dayLabel(m.date)}の結果`), h("div", { class: "games" }, m.games.map(gameBlock))]);
+  show(() => [hero(`${dayLabel(m.date)}の結果`), h("div", { class: "games" }, m.games.map(g => gameBlock(g)))]);
 }
 
 // ---------- 選手（成績はすべてレギュラーシーズン） ----------
@@ -124,7 +124,7 @@ function openTeam(t) {
         h("span", { class: "prow__rank" }, ""),
         h("div", {}, h("div", { class: "prow__name" }, p.name), h("div", { class: "prow__meta" }, `${int(p.games)}試合・平均着順 ${dec2(p.avgRank)}`)),
         h("div", { class: "prow__val " + ptClass(p.points) }, pt(p.points)))))),
-      recent.length ? [h("h3", { class: "section-title" }, "直近の試合"), recent.map(resultCard)] : null,
+      recent.length ? [h("h3", { class: "section-title" }, "直近の試合"), recent.map(m => resultCard(m))] : null,
       past.length ? [
         h("h3", { class: "section-title" }, "過去シーズンの成績（レギュラー）"),
         h("section", { class: "card" }, h("table", { class: "career" },

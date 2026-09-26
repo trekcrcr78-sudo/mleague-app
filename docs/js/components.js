@@ -23,18 +23,23 @@ export function playerLink(name, opts) {
   return h("span", { class: "plink", ...pressable(e => { e.stopPropagation(); actions.openPlayer(name, opts); }) }, name);
 }
 
-export function gameBlock(g) {
+// 試合結果。markFav: 推しチームの試合・選手を緑にする（「結果」タブだけで使う）
+export function gameBlock(g, { markFav = false } = {}) {
   return h("div", { class: "game" }, h("div", { class: "game__no" }, `第${g.no}回戦`),
-    [...g.results].sort((a, b) => a.rank - b.rank).map(r => h("div", { class: "grow" },
-      h("span", { class: "grow__rank" + (r.rank === 1 ? " r1" : "") }, r.rank),
-      h("span", { class: "grow__name" }, playerLink(r.name), h("small", {}, teamShort(teamOfPlayer(r.name)))),
-      h("span", { class: "grow__pt " + ptClass(r.point) }, pt(r.point)))));
+    [...g.results].sort((a, b) => a.rank - b.rank).map(r => {
+      const team = teamOfPlayer(r.name);
+      return h("div", { class: "grow" },
+        h("span", { class: "grow__rank" + (r.rank === 1 ? " r1" : "") }, r.rank),
+        h("span", { class: "grow__name" }, playerLink(r.name), h("small", { class: markFav && team === state.fav ? "is-fav" : null }, teamShort(team))),
+        h("span", { class: "grow__pt " + ptClass(r.point) }, pt(r.point)));
+    }));
 }
 
-export function resultCard(m) {
-  return h("section", { class: "card result" },
+export function resultCard(m, { markFav = false } = {}) {
+  const fav = markFav && state.fav && m.teams.includes(state.fav);
+  return h("section", { class: "card result" + (fav ? " is-fav" : "") },
     h("div", { class: "result__head" }, h("span", { class: "result__date" }, dayLabel(m.date)), statusBadge(matchStatus(m))),
-    h("div", { class: "games" }, m.games.map(gameBlock)));
+    h("div", { class: "games" }, m.games.map(g => gameBlock(g, { markFav: fav }))));
 }
 
 export function stat(label, value, cls = "") {

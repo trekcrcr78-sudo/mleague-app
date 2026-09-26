@@ -240,6 +240,7 @@ button { font: inherit; color: inherit; }
 
 /* ---------- 結果 ---------- */
 .result { padding: 12px 14px; }
+.result.is-fav { background: var(--accent-soft); border: 2px solid var(--accent); padding: 11px 13px; }
 .result__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .result__date { font-weight: 750; }
 .games { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -251,6 +252,7 @@ button { font: inherit; color: inherit; }
 .grow__rank.r1 { color: var(--gold); }
 .grow__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .grow__name small { color: var(--muted); margin-left: 4px; font-size: 11px; }
+.grow__name small.is-fav { color: var(--accent); font-weight: 700; }
 .grow__pt { font-weight: 700; font-variant-numeric: tabular-nums; }
 
 /* ---------- 詳細シート ---------- */

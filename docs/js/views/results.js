@@ -8,6 +8,6 @@ export function viewResults() {
   if (state.resultTeam !== "all") list = list.filter(m => m.teams.includes(state.resultTeam));
   return [
     chipRow([["all", "全チーム"], ...state.data.standings.map(r => [r.team, teamShort(r.team)])], state.resultTeam, v => set({ resultTeam: v })),
-    list.length ? list.map(resultCard) : h("p", { class: "empty" }, "まだ結果がありません"),
+    list.length ? list.map(m => resultCard(m, { markFav: true })) : h("p", { class: "empty" }, "まだ結果がありません"),
   ];
 }
