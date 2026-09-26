@@ -157,10 +157,17 @@ button { font: inherit; color: inherit; }
 .day__dow { font-size: 11px; color: var(--muted); }
 .day__dow.sat { color: #2a78d6; }
 .day__dow.sun { color: var(--neg); }
-.match { display: flex; align-items: flex-start; gap: 8px; padding: 3px 0; cursor: default; }
-.match[data-match] { cursor: pointer; }
-.match__teams { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; }
-.match__status { flex: none; }
+.matches { display: grid; gap: 8px; min-width: 0; }
+.match { background: var(--surface-2); border-radius: 10px; padding: 7px 8px 8px; min-width: 0; }
+.match.is-clickable { cursor: pointer; }
+.match.is-clickable:active { filter: brightness(0.97); }
+.match__head { display: flex; align-items: center; gap: 8px; height: 20px; margin-bottom: 5px; }
+.match__table { font-size: 12px; font-weight: 750; color: var(--ink-2); }
+.match__status { margin-left: auto; }
+/* チームは常に2列×2行（名前の長さで折り返し位置が変わらないように） */
+.match__teams { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+.match__teams .team-tag { display: block; text-align: center; background: var(--surface); padding: 3px 6px; overflow: hidden; text-overflow: ellipsis; }
+.match__teams .team-tag.is-fav { background: var(--accent-soft); }
 
 /* ---------- 順位 ---------- */
 .standings { width: 100%; border-collapse: collapse; }

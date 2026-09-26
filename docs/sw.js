@@ -1,5 +1,5 @@
 // ネットワーク優先・圏外ならキャッシュ（複数ファイルの新旧が混ざらないように）
-const CACHE = "mleague-v4";
+const CACHE = "mleague-v5";
 const SHELL = [
   "./", "index.html", "style.css", "manifest.webmanifest", "icons/icon-192.png", "icons/icon.svg",
   "js/main.js", "js/store.js", "js/model.js", "js/format.js", "js/dom.js", "js/actions.js", "js/components.js",
@@ -16,7 +16,8 @@ self.addEventListener("fetch", e => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET" || url.origin !== location.origin) return;
   const key = url.pathname.endsWith(".json") ? url.pathname.split("/").pop() : e.request; // ?t= を無視して保存
-  e.respondWith(fetch(e.request).then(res => {
+  // cache: "no-cache" = ブラウザの短期キャッシュ（GitHub Pages は最大10分）を使わず、毎回サーバーに更新有無を確認する
+  e.respondWith(fetch(url.href, { cache: "no-cache", credentials: "same-origin" }).then(res => {
     if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(key, copy)); }
     return res;
   }).catch(() => caches.match(key)));

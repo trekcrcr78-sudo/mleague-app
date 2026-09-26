@@ -5,17 +5,25 @@ import { DOW, dayLabel, dowOf, mdLabel, todayStr } from "../format.js";
 import { allMatches, matchStatus, teamShort } from "../model.js";
 import { set, state } from "../store.js";
 
-function matchRow(m) {
+// 何卓目か（試合IDの末尾 "2026-09-21-2" の 2）。推しチームで絞り込んでも番号は変わらない
+function tableNo(m) { return Number(m.id.split("-").pop()); }
+
+function matchRow(m, tablesThatDay) {
   const clickable = m.games.length > 0;
-  return h("div", { class: "match", ...(clickable ? pressable(() => actions.openMatch(m)) : {}) },
-    h("div", { class: "match__teams" }, m.teams.map(teamTag)),
-    h("div", { class: "match__status" }, statusBadge(matchStatus(m))));
+  return h("div", { class: "match" + (clickable ? " is-clickable" : ""), ...(clickable ? pressable(() => actions.openMatch(m)) : {}) },
+    h("div", { class: "match__head" },
+      tablesThatDay > 1 ? h("span", { class: "match__table" }, `${tableNo(m)}卓目`) : null,
+      h("span", { class: "match__status" }, statusBadge(matchStatus(m)))),
+    h("div", { class: "match__teams" }, m.teams.map(teamTag)));
 }
 
 export function viewSchedule() {
   const matches = allMatches();
   const today = todayStr();
   const out = [];
+  const tablesOn = new Map();
+  for (const m of matches) tablesOn.set(m.date, (tablesOn.get(m.date) || 0) + 1);
+  const row = m => matchRow(m, tablesOn.get(m.date));
 
   // 今日（なければ次の開催日）
   const nextDate = matches.find(m => m.date >= today)?.date;
@@ -24,7 +32,7 @@ export function viewSchedule() {
     out.push(sectionTitle(isToday ? "本日の対局" : "次の対局"),
       h("section", { class: "card today" },
         h("div", { class: "today__head" }, h("span", { class: "today__date" }, `${isToday ? "今日" : "次の対局"} ${dayLabel(nextDate)}`)),
-        matches.filter(m => m.date === nextDate).map(matchRow)));
+        h("div", { class: "matches" }, matches.filter(m => m.date === nextDate).map(row))));
   }
 
   // 月ごと
@@ -50,7 +58,7 @@ export function viewSchedule() {
     const dw = dowOf(d);
     return h("div", { class: "day" + (d === today ? " is-today" : "") },
       h("div", { class: "day__date" }, h("div", { class: "day__md" }, mdLabel(d)), h("div", { class: "day__dow" + (dw === 6 ? " sat" : dw === 0 ? " sun" : "") }, DOW[dw])),
-      h("div", {}, ms.map(matchRow)));
+      h("div", { class: "matches" }, ms.map(row)));
   }));
   out.push(byDate.size ? card : h("p", { class: "empty" }, "この月の試合はありません"), note("終了した試合をタップすると結果が見られます。"));
   return out;
