@@ -196,3 +196,37 @@ def parse_titles(html):
                     tid = team
                 titles.append({"season": m.group(1), "award": award, "name": name, "team": tid, "value": wiki_num(value)})
     return titles
+
+
+# ---------- チーム成績（「Mリーグ」記事の「チーム成績」節: レギュラー／セミファイナル／ファイナル） ----------
+TEAM_SECTIONS = {"レギュラーシーズン": "R", "セミファイナル": "SF", "ファイナルシリーズ": "F"}
+
+
+def fetch_team_results_html():
+    """{"R": html, "SF": html, "F": html}"""
+    sections = _api({"action": "parse", "page": "Mリーグ", "prop": "sections"})["sections"]
+    parent = next(s["number"] for s in sections if clean_label(s["line"]) == "チーム成績")
+    out = {}
+    for s in sections:
+        stage = TEAM_SECTIONS.get(clean_label(s["line"]))
+        if stage and s["number"].startswith(parent + "."):
+            out[stage] = _api({"action": "parse", "page": "Mリーグ", "prop": "text", "section": s["index"]})["text"]
+    return out
+
+
+def parse_team_results(html_by_stage):
+    """{"2019-20": {"R": [{"team", "points"}], "SF": [...], "F": [...]}}。レギュラーは順位だけ（points=None）"""
+    out = {}
+    for stage, html in html_by_stage.items():
+        for tr in BeautifulSoup(html, "html.parser").find_all("tr"):
+            cells = [clean_label(x.get_text(" ")) for x in tr.find_all(["th", "td"])]
+            m = re.match(r"(\d{4}-\d{2})", cells[0] if cells else "")
+            if not m:
+                continue
+            if stage == "R":
+                rows = [{"team": team_id(c), "points": None} for c in cells[1:] if c]
+            else:
+                rows = [{"team": team_id(cells[i]), "points": wiki_num(cells[i + 1])}
+                        for i in range(1, len(cells) - 1, 2) if cells[i]]
+            out.setdefault(m.group(1), {})[stage] = rows
+    return out

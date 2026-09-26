@@ -53,8 +53,8 @@ export function sectionTitle(text) { return h("h2", { class: "section-title" }, 
 export function sourceNote(seasons) {
   const links = seasons.map(s => [s, wikiSource(s)]).filter(([, url]) => url);
   if (!links.length) return null;
-  return h("p", { class: "note source" }, "過去シーズンの成績の出典: 公式サイト、Wikipedia（",
-    links.map(([s, url], i) => [i ? "・" : "", h("a", { href: url, target: "_blank", rel: "noopener" }, s === "titles" ? "個人タイトル" : s)]),
+  return h("p", { class: "note source" }, "過去シーズンの出典: 公式サイト、Wikipedia（",
+    links.map(([s, url], i) => [i ? "・" : "", h("a", { href: url, target: "_blank", rel: "noopener" }, { titles: "個人タイトル", teams: "チーム成績" }[s] ?? s)]),
     "、CC BY-SA 4.0）");
 }
 

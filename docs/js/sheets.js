@@ -114,7 +114,7 @@ function openTeam(t) {
     const row = state.data.standings.find(r => r.team === t);
     const members = state.data.players.filter(p => p.team === t).sort((a, b) => b.points - a.points);
     const recent = allMatches().filter(m => m.games.length && m.teams.includes(t)).reverse().slice(0, 5);
-    const past = Object.entries(state.history?.teamRegular?.[t] ?? {}).reverse();
+    const past = Object.entries(state.history?.teamStages?.[t] ?? {}).filter(([, v]) => v.R != null).map(([s, v]) => [s, v.R]).reverse();
     return [
       hero(teamName(t), row ? `${row.rank}位・${row.games}/${row.totalGames}試合` : "", row?.points, "ポイント"),
       h("button", { class: "fav-btn", type: "button", "aria-pressed": String(state.fav === t), onclick: () => setFav(state.fav === t ? null : t) },

@@ -15,9 +15,10 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from common import BASE, JST, TEAMS, fetch, fetch_text, season_label
-from parse_history import parse_team_page, parse_team_regular_points
+from parse_history import compute_standings, parse_team_page, parse_team_stage_points
 from parse_live import parse_month, parse_standings, parse_stats, regular_stats_href, season_months
-from parse_wikipedia import article_url, fetch_article_html, fetch_titles_html, parse_season, parse_titles
+from parse_wikipedia import (article_url, fetch_article_html, fetch_team_results_html, fetch_titles_html,
+                             parse_season, parse_team_results, parse_titles)
 
 DOCS = Path(__file__).resolve().parent.parent / "docs"
 DATA = DOCS / "data.json"
@@ -78,7 +79,7 @@ def scrape_wikipedia(now, current_season, old_wiki):
     wanted = [season_label(y) for y in range(FIRST_SEASON, start)]
     fetched = old_wiki.get("fetchedAt")
     fresh = fetched and now - datetime.fromisoformat(fetched) < WIKI_REFRESH
-    if fresh and "titles" in old_wiki and all(s in old_wiki.get("seasons", {}) for s in wanted):
+    if fresh and "titles" in old_wiki and "teams" in old_wiki and all(s in old_wiki.get("seasons", {}) for s in wanted):
         return old_wiki
     seasons, sources, errors = {}, {}, []
     for s in wanted:
@@ -94,11 +95,38 @@ def scrape_wikipedia(now, current_season, old_wiki):
     except Exception as e:
         errors.append(f"個人タイトル: {e}")
         titles = old_wiki.get("titles", [])
-    sources["titles"] = "https://ja.wikipedia.org/wiki/" + urllib.parse.quote("Mリーグ") + "#" + urllib.parse.quote("個人タイトル")
+    try:
+        teams = parse_team_results(fetch_team_results_html())
+    except Exception as e:
+        errors.append(f"チーム成績: {e}")
+        teams = old_wiki.get("teams", {})
+    main_article = "https://ja.wikipedia.org/wiki/" + urllib.parse.quote("Mリーグ")
+    sources["titles"] = main_article + "#" + urllib.parse.quote("個人タイトル")
+    sources["teams"] = main_article + "#" + urllib.parse.quote("チーム成績")
     for e in errors:
         print("wikipedia:", e)
     return {"fetchedAt": now.isoformat(timespec="seconds"), "license": "CC BY-SA 4.0", "sources": sources,
-            "seasons": seasons, "titles": titles}
+            "seasons": seasons, "titles": titles, "teams": teams}
+
+
+def merge_standings(computed, wiki_teams):
+    """公式のポイントから計算した順位を、Wikipedia の順位表と照合する。
+
+    並び順は計算値を使い、セミファイナル・ファイナルのポイントは Wikipedia の値（最終順位として発表された値）を優先する。
+    """
+    for season, stages in computed.items():
+        for stage, rows in stages.items():
+            w = wiki_teams.get(season, {}).get(stage)
+            if not w:
+                continue
+            if [r["team"] for r in rows] != [x["team"] for x in w]:
+                print(f"  mismatch: {season} {stage} 順位 計算={[r['team'] for r in rows]} Wikipedia={[x['team'] for x in w]}")
+                continue
+            for r, x in zip(rows, w):
+                if x["points"] is not None and abs(r["points"] - x["points"]) > 0.05:
+                    print(f"  note: {season} {stage} {r['team']} 計算={r['points']} Wikipedia={x['points']}（Wikipedia の値を使用）")
+                    r["points"] = x["points"]
+    return computed
 
 
 def cross_check(players, wiki):
@@ -127,8 +155,9 @@ def scrape_history(now, data, old):
     players = {}
     for tid, (_, _, slug) in TEAMS.items():
         players.update(parse_team_page(fetch(f"/teams/{slug}/"), tid))
-    team_regular = parse_team_regular_points(fetch_text("/assets/js/main.bundle.js"))
+    team_stages = parse_team_stage_points(fetch_text("/assets/js/main.bundle.js"))
     wiki = scrape_wikipedia(now, data["season"], old.get("wiki") or {})
+    standings = merge_standings(compute_standings(team_stages), wiki.get("teams", {}))
     compared, mismatches = cross_check(players, wiki)
     print(f"cross-check: {compared} rows compared, {len(mismatches)} mismatches")
     for m in mismatches:
@@ -141,7 +170,8 @@ def scrape_history(now, data, old):
     return {
         "updatedAt": now.isoformat(timespec="seconds"),
         "players": players,
-        "teamRegular": team_regular,
+        "teamStages": team_stages,
+        "standings": standings,
         "archive": archive,
         "wiki": wiki,
     }
@@ -164,7 +194,7 @@ def main():
         hist = scrape_history(now, data, old_hist)
         changed = save_if_changed(HISTORY, old_hist, hist)
         print(f"history.json: {'updated' if changed else 'no change'} "
-              f"({len(hist['players'])} players, {len(hist['teamRegular'])} teams, archive={list(hist['archive'])})")
+              f"({len(hist['players'])} players, {len(hist['teamStages'])} teams, {len(hist['standings'])} seasons of standings, archive={list(hist['archive'])})")
 
 
 if __name__ == "__main__":

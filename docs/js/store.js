@@ -15,6 +15,7 @@ export const state = {
   scheduleFilter: "all",
   players: { scope: "season", pastSeason: null, who: "all", sort: "points", team: "all" },
   resultTeam: "all",
+  standingsView: { scope: "current", season: null },
 };
 
 const listeners = new Set();

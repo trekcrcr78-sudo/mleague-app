@@ -1,7 +1,7 @@
 """過去シーズンの成績の解析。
 
 - 選手別: 各チームページの「対戦成績」表（レギュラーシーズンのみ。セミファイナル・ファイナルは含まない）
-- チーム別: 累計ポイントページが読み込む JS 内の、シーズンごとのレギュラーのチームポイント
+- チーム別: 累計ポイントページが読み込む JS 内の、シーズン×ステージ（R/SF/F）ごとのチームポイント
 """
 import re
 
@@ -37,11 +37,42 @@ def parse_team_page(soup, tid):
     return players
 
 
-def parse_team_regular_points(js):
-    """累計ポイントページの JS から {チームID: {"2018-19": レギュラーのポイント}} を作る。"""
+def parse_team_stage_points(js):
+    """累計ポイントページの JS から {チームID: {"2018-19": {"R": .., "SF": .., "F": ..}}} を作る。
+
+    値はそのステージで稼いだポイントだけ（持ち越し前）。進出しなかったステージや参戦前は 0 なので落とす。
+    """
     teams = {}
     for block in re.findall(r"\{team_name:\"[^\"]+\"[^{}]*\}", js):
         tid = team_id(re.search(r'team_name:"([^"]+)"', block).group(1))
-        seasons = {s: float(v) for s, v in re.findall(r'"(\d{4}-\d{2}) R":(-?[\d.]+)', block)}
-        teams[tid] = {s: v for s, v in sorted(seasons.items()) if v}  # 参戦前のシーズンは 0
+        seasons = {}
+        for season, stage, value in re.findall(r'"(\d{4}-\d{2}) (R|SF|F)":(-?[\d.]+)', block):
+            if float(value):
+                seasons.setdefault(season, {})[stage] = float(value)
+        teams[tid] = dict(sorted(seasons.items()))
     return teams
+
+
+def compute_standings(team_stages):
+    """ステージごとの最終順位を計算する。
+
+    セミファイナルはレギュラーの半分、ファイナルは直前のステージの半分を持ち越す（2018-19 はセミファイナルなし）。
+    戻り値: {"2018-19": {"R": [{"team", "points"}, ...], "SF": [...], "F": [...]}}（ポイントの高い順）
+    """
+    seasons = {}
+    for tid, by_season in team_stages.items():
+        for season, v in by_season.items():
+            seasons.setdefault(season, {})[tid] = v
+    # 持ち越しは半分を小数第1位に丸めてから足す（Wikipedia の最終順位表とほぼ一致。差は ±0.2 以内）
+    half = lambda x: round(x / 2 + 1e-9, 1)
+    out = {}
+    for season, teams in sorted(seasons.items()):
+        r = {t: v["R"] for t, v in teams.items() if "R" in v}
+        sf = {t: round(half(r.get(t, 0)) + v["SF"], 1) for t, v in teams.items() if "SF" in v}
+        base = sf or r
+        f = {t: half(base.get(t, 0)) + v["F"] for t, v in teams.items() if "F" in v}
+        out[season] = {
+            stage: [{"team": t, "points": round(p, 1)} for t, p in sorted(d.items(), key=lambda x: -x[1])]
+            for stage, d in (("R", r), ("SF", sf), ("F", f)) if d
+        }
+    return out

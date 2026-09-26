@@ -1,5 +1,5 @@
 // ネットワーク優先・圏外ならキャッシュ（複数ファイルの新旧が混ざらないように）
-const CACHE = "mleague-v10";
+const CACHE = "mleague-v11";
 const SHELL = [
   "./", "index.html", "style.css", "manifest.webmanifest", "icons/icon-192.png", "icons/icon.svg",
   "js/main.js", "js/store.js", "js/model.js", "js/format.js", "js/dom.js", "js/actions.js", "js/components.js",

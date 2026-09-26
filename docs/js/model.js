@@ -185,3 +185,8 @@ export function titlesInSeason(season) {
   }
   return map;
 }
+
+// ---------- 過去シーズンのチーム順位（ステージ別） ----------
+export function standingSeasons() {
+  return Object.keys(state.history?.standings ?? {}).filter(s => s !== state.data.season).sort().reverse();
+}
