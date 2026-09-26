@@ -10,7 +10,8 @@ function tableNo(m) { return Number(m.id.split("-").pop()); }
 
 function matchRow(m, tablesThatDay) {
   const clickable = m.games.length > 0;
-  return h("div", { class: "match" + (clickable ? " is-clickable" : ""), ...(clickable ? pressable(() => actions.openMatch(m)) : {}) },
+  const fav = state.fav && m.teams.includes(state.fav);
+  return h("div", { class: "match" + (clickable ? " is-clickable" : "") + (fav ? " is-fav" : ""), ...(clickable ? pressable(() => actions.openMatch(m)) : {}) },
     h("div", { class: "match__head" },
       tablesThatDay > 1 ? h("span", { class: "match__table" }, `${tableNo(m)}卓目`) : null,
       h("span", { class: "match__status" }, statusBadge(matchStatus(m)))),
@@ -22,7 +23,11 @@ export function viewSchedule() {
   const today = todayStr();
   const out = [];
   const tablesOn = new Map();
-  for (const m of matches) tablesOn.set(m.date, (tablesOn.get(m.date) || 0) + 1);
+  const favDays = new Set();
+  for (const m of matches) {
+    tablesOn.set(m.date, (tablesOn.get(m.date) || 0) + 1);
+    if (state.fav && m.teams.includes(state.fav)) favDays.add(m.date);
+  }
   const row = m => matchRow(m, tablesOn.get(m.date));
 
   // 今日（なければ次の開催日）
@@ -57,7 +62,8 @@ export function viewSchedule() {
   const card = h("section", { class: "card" }, [...byDate].map(([d, ms]) => {
     const dw = dowOf(d);
     return h("div", { class: "day" + (d === today ? " is-today" : "") },
-      h("div", { class: "day__date" }, h("div", { class: "day__md" }, mdLabel(d)), h("div", { class: "day__dow" + (dw === 6 ? " sat" : dw === 0 ? " sun" : "") }, DOW[dw])),
+      h("div", { class: "day__date" }, h("div", { class: "day__md" }, mdLabel(d)), h("div", { class: "day__dow" + (dw === 6 ? " sat" : dw === 0 ? " sun" : "") }, DOW[dw]),
+        favDays.has(d) ? h("span", { class: "day__fav", title: `${teamShort(state.fav)}の試合あり` }) : null),
       h("div", { class: "matches" }, ms.map(row)));
   }));
   out.push(byDate.size ? card : h("p", { class: "empty" }, "この月の試合はありません"), note("終了した試合をタップすると結果が見られます。"));

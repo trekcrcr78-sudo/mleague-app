@@ -4,8 +4,8 @@ import { actions } from "./actions.js";
 import { gameBlock, note, resultCard, stat, teamTag } from "./components.js";
 import { $, h, pressable, segmented } from "./dom.js";
 import { dayLabel, dec2, int, pct, pt, ptClass, round1 } from "./format.js";
-import { aggregate, allMatches, currentPlayer, playerLog, seasonRows, teamName, teamOfPlayer } from "./model.js";
-import { set, state } from "./store.js";
+import { aggregate, allMatches, currentPlayer, playerLog, seasonRows, teamName, teamOfPlayer, teamShort } from "./model.js";
+import { setFav, state } from "./store.js";
 
 let current = null; // 開いているシートの描画関数（データ更新時に描き直す）
 
@@ -102,11 +102,8 @@ function openTeam(t) {
     const past = Object.entries(state.history?.teamRegular?.[t] ?? {}).reverse();
     return [
       hero(teamName(t), row ? `${row.rank}位・${row.games}/${row.totalGames}試合` : "", row?.points, "ポイント"),
-      h("button", { class: "fav-btn", type: "button", "aria-pressed": String(state.fav === t), onclick: () => {
-        const fav = state.fav === t ? null : t;
-        set({ fav, ...(fav && !(state.chartTeams || []).includes(t) ? { chartTeams: null } : {}) });
-        redrawSheet();
-      } }, state.fav === t ? "★ 推しチームに設定中" : "☆ 推しチームにする"),
+      h("button", { class: "fav-btn", type: "button", "aria-pressed": String(state.fav === t), onclick: () => setFav(state.fav === t ? null : t) },
+        state.fav === t ? "★ 推しチームに設定中" : "☆ 推しチームにする"),
       h("h3", { class: "section-title" }, "所属選手"),
       h("section", { class: "card" }, h("ol", { class: "plist" }, members.map(p => h("li", { class: "prow", ...pressable(() => actions.openPlayer(p.name)) },
         h("span", { class: "prow__rank" }, ""),
@@ -123,8 +120,21 @@ function openTeam(t) {
   });
 }
 
+// ---------- 推しチームの選択（1チームだけ） ----------
+function openFavPicker() {
+  const pick = team => { setFav(team); closeSheet(); };
+  show(() => [
+    h("div", { class: "hero" }, h("div", {}, h("h2", { id: "sheet-title" }, "推しチーム"),
+      h("div", { class: "prow__meta" }, "日程・順位・個人成績で色付けして表示します"))),
+    h("div", { class: "fav-grid", role: "radiogroup", "aria-label": "推しチーム" },
+      state.data.standings.map(r => h("button", { class: "fav-opt", type: "button", role: "radio", "aria-checked": String(state.fav === r.team), onclick: () => pick(r.team) },
+        h("span", { class: "fav-opt__radio", "aria-hidden": "true" }), teamShort(r.team)))),
+    h("button", { class: "fav-opt fav-opt--none", type: "button", role: "radio", "aria-checked": String(!state.fav), onclick: () => pick(null) }, "設定しない"),
+  ]);
+}
+
 export function initSheets() {
-  Object.assign(actions, { openPlayer, openTeam, openMatch });
+  Object.assign(actions, { openPlayer, openTeam, openMatch, openFavPicker });
   $("#sheet").addEventListener("click", e => { if (e.target.closest("[data-close]")) closeSheet(); });
   document.addEventListener("keydown", e => { if (e.key === "Escape") closeSheet(); });
   window.addEventListener("popstate", () => closeSheet(true));

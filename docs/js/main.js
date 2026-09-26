@@ -1,5 +1,6 @@
 // 起動・タブ切替・データの定期読み込み
 
+import { actions } from "./actions.js";
 import { hideTooltip } from "./chart.js";
 import { $, h } from "./dom.js";
 import { todayStr, jstNow } from "./format.js";
@@ -23,6 +24,9 @@ function render() {
   const v = VIEWS[state.tab] || VIEWS.schedule;
   for (const b of document.querySelectorAll(".tab")) b.classList.toggle("is-active", b.dataset.tab === state.tab);
   $("#title").textContent = v.title;
+  const fav = $("#fav");
+  fav.classList.toggle("is-on", !!state.fav);
+  fav.setAttribute("aria-label", state.fav && state.data ? `推しチーム: ${state.data.teams[state.fav]?.short}（変更する）` : "推しチームを選ぶ");
   if (!state.data) return;
   hideTooltip();
   content.replaceChildren(...[v.render()].flat(Infinity).filter(Boolean));
@@ -80,6 +84,7 @@ function scheduleRefresh() {
 initSheets();
 document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => set({ tab: b.dataset.tab })));
 $("#refresh").addEventListener("click", () => load({ manual: true }));
+$("#fav").addEventListener("click", () => { if (state.data) actions.openFavPicker(); });
 document.addEventListener("visibilitychange", () => { if (!document.hidden) { load(); scheduleRefresh(); } });
 let rt; window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { if (state.tab === "standings") afterStandings(); }, 150); });
 setInterval(renderUpdated, 30e3);

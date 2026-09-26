@@ -11,6 +11,7 @@
   --ring: rgba(11, 11, 11, 0.08);
   --accent: #0f6e52;
   --accent-soft: #e2f1eb;
+  --on-accent: #ffffff;
   --pos: #006300;
   --neg: #b42f2f;
   --series-1: #2a78d6;
@@ -37,6 +38,7 @@
     --ring: rgba(255, 255, 255, 0.08);
     --accent: #4cc79a;
     --accent-soft: #15302a;
+    --on-accent: #0b0b0b;
     --pos: #3ccf5c;
     --neg: #f07a7a;
     --series-1: #3987e5;
@@ -52,7 +54,7 @@
   color-scheme: dark;
   --page: #0d0d0d; --surface: #1a1a19; --surface-2: #242423; --ink: #ffffff; --ink-2: #c3c2b7;
   --muted: #8f8d86; --line: #2c2c2a; --axis: #383835; --ring: rgba(255, 255, 255, 0.08);
-  --accent: #4cc79a; --accent-soft: #15302a; --pos: #3ccf5c; --neg: #f07a7a;
+  --accent: #4cc79a; --accent-soft: #15302a; --on-accent: #0b0b0b; --pos: #3ccf5c; --neg: #f07a7a;
   --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-rest: #3d3d3a;
   --gold: #e0a92a; --live: #ef6464; --shadow: none;
 }
@@ -86,10 +88,13 @@ button { font: inherit; color: inherit; }
 .topbar__title { margin: 0; font-size: 22px; font-weight: 750; letter-spacing: 0.01em; }
 .topbar__updated { grid-column: 1 / -1; margin: 0; font-size: 12px; color: var(--muted); }
 .topbar__updated .live { color: var(--live); font-weight: 700; }
-.topbar__refresh {
+.topbar__actions { display: flex; gap: 8px; }
+.topbar__btn {
   width: 36px; height: 36px; border-radius: 50%; border: 0; background: var(--surface-2);
   display: grid; place-items: center; cursor: pointer; color: var(--ink-2);
 }
+.topbar__fav { color: var(--muted); }
+.topbar__fav.is-on { background: var(--accent); color: var(--on-accent); }
 .topbar__refresh.is-spinning svg { animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -158,7 +163,8 @@ button { font: inherit; color: inherit; }
 .day__dow.sat { color: #2a78d6; }
 .day__dow.sun { color: var(--neg); }
 .matches { display: grid; gap: 8px; min-width: 0; }
-.match { background: var(--surface-2); border-radius: 10px; padding: 7px 8px 8px; min-width: 0; }
+.match { background: var(--surface-2); border-radius: 10px; padding: 5px 6px 6px; min-width: 0; border: 2px solid transparent; }
+.match.is-fav { background: var(--accent-soft); border-color: var(--accent); }
 .match.is-clickable { cursor: pointer; }
 .match.is-clickable:active { filter: brightness(0.97); }
 .match__head { display: flex; align-items: center; gap: 8px; height: 20px; margin-bottom: 5px; }
@@ -167,7 +173,17 @@ button { font: inherit; color: inherit; }
 /* チームは常に2列×2行（名前の長さで折り返し位置が変わらないように） */
 .match__teams { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
 .match__teams .team-tag { display: block; text-align: center; background: var(--surface); padding: 3px 6px; overflow: hidden; text-overflow: ellipsis; }
-.match__teams .team-tag.is-fav { background: var(--accent-soft); }
+.match__teams .team-tag.is-fav { background: var(--accent); color: var(--on-accent); }
+.day__fav { display: block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin: 5px auto 0; }
+
+/* ---------- 推しチームの選択 ---------- */
+.fav-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.fav-opt { display: flex; align-items: center; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); font-size: 14px; font-weight: 650; cursor: pointer; text-align: left; color: var(--ink); }
+.fav-opt__radio { flex: none; width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--axis); }
+.fav-opt[aria-checked="true"] { border: 2px solid var(--accent); background: var(--accent-soft); color: var(--accent); padding: 11px; }
+.fav-opt[aria-checked="true"] .fav-opt__radio { border: 5px solid var(--accent); }
+.fav-opt--none { width: 100%; justify-content: center; margin-top: 8px; color: var(--muted); font-weight: 600; }
+.fav-opt--none[aria-checked="true"] { color: var(--ink-2); border-color: var(--axis); background: var(--surface-2); }
 
 /* ---------- 順位 ---------- */
 .standings { width: 100%; border-collapse: collapse; }

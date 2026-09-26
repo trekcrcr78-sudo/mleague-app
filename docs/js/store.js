@@ -28,6 +28,15 @@ export function set(patch) {
 
 export function setPlayers(patch) { set({ players: { ...state.players, ...patch } }); }
 
+// 推しチームは1チームだけ。設定するとグラフの強調も推し中心に選び直す
+export function setFav(team) {
+  set({
+    fav: team,
+    ...(team && !(state.chartTeams || []).includes(team) ? { chartTeams: null } : {}),
+    ...(!team ? { scheduleFilter: "all" } : {}),
+  });
+}
+
 // 読み込み: 変わっていれば true
 export async function loadJSON(name) {
   const res = await fetch(`${name}.json?t=${Date.now()}`, { cache: "no-store" });

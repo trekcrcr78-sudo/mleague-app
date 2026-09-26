@@ -4,4 +4,5 @@ export const actions = {
   openPlayer: (_name, _opts) => {},
   openTeam: (_team) => {},
   openMatch: (_match) => {},
+  openFavPicker: () => {},
 };
