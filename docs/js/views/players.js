@@ -1,10 +1,10 @@
-// 個人成績タブ: 今季（ステージ別）と通算（ステージ別）のランキング
+// 個人成績タブ: 今季と通算（どちらもレギュラーシーズン）のランキング
 
 import { actions } from "../actions.js";
 import { note, teamTag } from "../components.js";
 import { chipRow, h, pressable } from "../dom.js";
-import { dec2, int, pct, pt, ptClass, STAGE_LABEL } from "../format.js";
-import { careerOf, currentStages, rosterNames, teamOfPlayer, teamShort, trackedSince } from "../model.js";
+import { dec2, int, pct, pt, ptClass } from "../format.js";
+import { careerOf, rosterNames, teamOfPlayer, teamShort } from "../model.js";
 import { setPlayers, state } from "../store.js";
 
 // 今季: 公式の成績ページと同じ項目
@@ -46,38 +46,26 @@ function rankList(rows, sort, { meta, onOpen }) {
 
 export function viewPlayers() {
   const ps = state.players;
-  const stages = currentStages();
-  const scope = ps.scope === "career" || stages.includes(ps.scope) ? ps.scope : "R";
-  const career = scope === "career";
+  const career = ps.scope === "career";
   const sorts = career ? CAREER_SORTS : SEASON_SORTS;
   const sort = sorts.find(x => x.k === ps.sort) || sorts[0];
-  const teamIds = state.data.standings.map(r => r.team);
   const byTeam = r => ps.team === "all" || r.team === ps.team;
 
   const controls = h("div", { class: "controls" },
-    chipRow([...stages.map(s => [s, `今季${STAGE_LABEL[s]}`]), ["career", "通算"]], scope, v => setPlayers({ scope: v, sort: "points" })),
-    career ? chipRow([["all", "全ステージ"], ["R", "レギュラー"], ["SF", "セミファイナル"], ["F", "ファイナル"]], ps.careerStage, v => setPlayers({ careerStage: v })) : null,
+    chipRow([["season", `今季（${state.data.season}）`], ["career", "通算"]], career ? "career" : "season", v => setPlayers({ scope: v, sort: "points" })),
     chipRow(sorts.map(x => [x.k, x.label]), sort.k, v => setPlayers({ sort: v })),
-    chipRow([["all", "全チーム"], ...teamIds.map(t => [t, teamShort(t)])], ps.team, v => setPlayers({ team: v })));
+    chipRow([["all", "全チーム"], ...state.data.standings.map(r => [r.team, teamShort(r.team)])], ps.team, v => setPlayers({ team: v })));
 
   if (!career) {
-    const rows = state.data.stages[scope].filter(p => p.games > 0).map(p => ({ name: p.name, team: p.team, v: p })).filter(byTeam);
+    const rows = state.data.players.filter(p => p.games > 0).map(p => ({ name: p.name, team: p.team, v: p })).filter(byTeam);
     return [controls,
-      rankList(rows, sort, { meta: v => `${int(v.games)}試合`, onOpen: name => actions.openPlayer(name, { view: "season", stage: scope }) }),
-      note("選手をタップすると詳しい成績、対局履歴、過去シーズンを含む通算成績が見られます。試合数が少ないうちは率の数字が大きくぶれます。")];
+      rankList(rows, sort, { meta: v => `${int(v.games)}試合`, onOpen: name => actions.openPlayer(name, { view: "season" }) }),
+      note("レギュラーシーズンの成績です。選手をタップすると詳しい成績、対局履歴、通算成績が見られます。試合数が少ないうちは率の数字が大きくぶれます。")];
   }
 
-  const stage = ps.careerStage;
-  const rows = rosterNames().map(name => ({ name, team: teamOfPlayer(name), v: careerOf(name, stage) })).filter(r => r.v).filter(byTeam);
-  const since = trackedSince();
-  const notes = {
-    all: `レギュラーシーズン（2018-19〜）と、${since}以降のセミファイナル・ファイナルの合計です。`,
-    R: "2018-19シーズンからのレギュラーシーズンの通算です。",
-    SF: `過去シーズンのセミファイナルの個人成績は公式サイトで公開されていないため、${since}シーズンから記録しています。`,
-    F: `過去シーズンのファイナルの個人成績は公式サイトで公開されていないため、${since}シーズンから記録しています。`,
-  };
+  const rows = rosterNames().map(name => ({ name, team: teamOfPlayer(name), v: careerOf(name) })).filter(r => r.v).filter(byTeam);
   return [controls,
     rows.length ? rankList(rows, sort, { meta: v => `${int(v.games)}半荘・${v.seasons}シーズン`, onOpen: name => actions.openPlayer(name, { view: "career" }) })
-      : h("p", { class: "empty" }, `${STAGE_LABEL[stage]}の記録はまだありません`),
-    note(notes[stage] + " 対象は今季の所属選手です。平均打点はアガリ回数が公開されていないため、半荘数で重み付けした目安です。")];
+      : h("p", { class: "empty" }, "通算成績はまだありません"),
+    note("2018-19シーズンからのレギュラーシーズンの通算です（今季を含む）。対象は今季の所属選手です。平均打点はアガリ回数が公開されていないため、半荘数で重み付けした目安です。")];
 }

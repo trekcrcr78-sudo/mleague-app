@@ -1,7 +1,7 @@
 // データから画面用の値を組み立てる（DOM には触らない）。
 
 import { state } from "./store.js";
-import { jstNow, mdLabel, round1, STAGE_ORDER, todayStr } from "./format.js";
+import { jstNow, mdLabel, round1, todayStr } from "./format.js";
 
 export function teamShort(id) { return state.data.teams[id]?.short ?? id ?? ""; }
 export function teamName(id) { return state.data.teams[id]?.name ?? id ?? ""; }
@@ -11,24 +11,13 @@ export function allMatches() {
   return Object.keys(byMonth).sort().flatMap(k => byMonth[k]);
 }
 
-export function currentStages() {
-  return STAGE_ORDER.filter(s => state.data.stages?.[s]?.length);
-}
-
-// 選手名 -> 今季レギュラーの成績（なければ他ステージ、過去成績）
+// 選手名 -> 今季の成績（レギュラー）
 let pmCache = { key: null, map: null };
 function playerIndex() {
-  const key = state.data;
-  if (pmCache.key !== key) {
-    const map = new Map();
-    for (const s of [...currentStages()].reverse()) for (const p of state.data.stages[s]) map.set(p.name, p);
-    pmCache = { key, map };
-  }
+  if (pmCache.key !== state.data) pmCache = { key: state.data, map: new Map(state.data.players.map(p => [p.name, p])) };
   return pmCache.map;
 }
-export function currentPlayer(name, stage = "R") {
-  return state.data.stages?.[stage]?.find(p => p.name === name) ?? null;
-}
+export function currentPlayer(name) { return playerIndex().get(name) ?? null; }
 export function teamOfPlayer(name) {
   return playerIndex().get(name)?.team ?? state.history?.players?.[name]?.team;
 }
@@ -52,29 +41,21 @@ export function playerLog(name) {
   return rows.reverse();
 }
 
-// ---------- 通算成績 ----------
-// 1シーズン×1ステージの行: { season, stage, points, games, avgWin, lastAvoidRate, bestScore, current }
+// ---------- 通算成績（レギュラーシーズン） ----------
+// 1シーズンの行: { season, points, games, avgWin, lastAvoidRate, bestScore, current }
 export function seasonRows(name) {
   const rows = [];
   const cur = state.data.season;
-  for (const stage of currentStages()) {
-    const p = currentPlayer(name, stage);
-    if (p?.games) rows.push({ season: cur, stage, current: true, ...pick(p) });
+  const p = currentPlayer(name);
+  if (p?.games) rows.push({ season: cur, current: true, ...pick(p) });
+  for (const [season, players] of Object.entries(state.history?.archive ?? {})) {
+    const a = season !== cur && players.find(x => x.name === name);
+    if (a?.games) rows.push({ season, ...pick(a) });
   }
-  const archive = state.history?.archive ?? {};
-  for (const [season, stages] of Object.entries(archive)) {
-    if (season === cur) continue;
-    for (const stage of STAGE_ORDER) {
-      const p = stages[stage]?.find(x => x.name === name);
-      if (p?.games) rows.push({ season, stage, ...pick(p) });
-    }
-  }
-  // チームページの過去成績はレギュラーのみ。詳細版（archive）があるシーズンはそちらを優先
-  const have = new Set(rows.filter(r => r.stage === "R").map(r => r.season));
-  for (const r of state.history?.players?.[name]?.regular ?? []) {
-    if (!have.has(r.season)) rows.push({ stage: "R", ...r });
-  }
-  return rows.sort((a, b) => b.season.localeCompare(a.season) || STAGE_ORDER.indexOf(a.stage) - STAGE_ORDER.indexOf(b.stage));
+  // 詳細版（archive）があるシーズンはそちらを優先し、残りをチームページの過去成績で埋める
+  const have = new Set(rows.map(r => r.season));
+  for (const r of state.history?.players?.[name]?.regular ?? []) if (!have.has(r.season)) rows.push({ ...r });
+  return rows.sort((a, b) => b.season.localeCompare(a.season));
 }
 function pick(p) {
   return { points: p.points, games: p.games, avgWin: p.avgWin, lastAvoidRate: p.lastAvoidRate, bestScore: p.bestScore };
@@ -97,17 +78,7 @@ export function aggregate(rows) {
   };
 }
 
-export function careerOf(name, stage = "all") {
-  const rows = seasonRows(name).filter(r => stage === "all" || r.stage === stage);
-  return aggregate(rows);
-}
-
-// 個人の詳細が残っている最初のシーズン（これより前のセミファイナル・ファイナルは個人成績なし）
-export function trackedSince() {
-  const seasons = Object.keys(state.history?.archive ?? {});
-  if (state.data?.season) seasons.push(state.data.season);
-  return seasons.sort()[0];
-}
+export function careerOf(name) { return aggregate(seasonRows(name)); }
 
 // ---------- ポイント推移 ----------
 export function progression() {

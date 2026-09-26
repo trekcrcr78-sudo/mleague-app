@@ -3,9 +3,6 @@ import re
 
 from common import norm, num, team_id
 
-STAGES = {"Regular": "R", "SemiFinal": "SF", "Final": "F"}
-
-
 def parse_standings(soup):
     rows = []
     for li in soup.select("ol.p-ranking__team-list > li"):
@@ -22,17 +19,12 @@ def parse_standings(soup):
     return rows
 
 
-def stage_links(soup):
-    """成績ページのタブのうち、公開済み（リンクになっている）ステージだけを返す。
-
-    未開始のステージはリンクが HTML コメントに入っているため、BeautifulSoup には見えない。
-    """
-    links = {}
+def regular_stats_href(soup):
+    """成績ページのタブから「レギュラーシーズン」のリンクを探す（ポストシーズン中も表示をレギュラーに固定するため）。"""
     for a in soup.select(".p-stats__tab a.c-tab__clickable[href]"):
-        stage = STAGES.get(norm(a.select_one(".c-tab__label-main").text))
-        if stage:
-            links[stage] = a["href"]
-    return links
+        if norm(a.select_one(".c-tab__label-main").text) == "Regular":
+            return a["href"]
+    return None
 
 
 STAT_KEYS = {

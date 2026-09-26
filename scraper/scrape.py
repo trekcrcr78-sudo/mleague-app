@@ -1,7 +1,7 @@
 """Mリーグ公式サイトから日程・成績を取得して docs/ 以下の JSON に書き出す。
 
 使い方:
-  python scraper/scrape.py          # 当月の日程 + 順位 + 今季の個人成績だけ更新（試合中の高頻度更新向け）
+  python scraper/scrape.py          # 当月の日程 + 順位 + 今季の個人成績（レギュラー）だけ更新（試合中の高頻度更新向け）
   python scraper/scrape.py --full   # シーズン全月の日程と過去シーズンの成績も取り直す（1日1回程度）
 
 出力:
@@ -14,8 +14,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from common import BASE, JST, TEAMS, fetch, fetch_text, season_label
-from parse_history import parse_team_page, parse_team_stage_points
-from parse_live import parse_month, parse_standings, parse_stats, season_months, stage_links
+from parse_history import parse_team_page, parse_team_regular_points
+from parse_live import parse_month, parse_standings, parse_stats, regular_stats_href, season_months
 
 DOCS = Path(__file__).resolve().parent.parent / "docs"
 DATA = DOCS / "data.json"
@@ -43,12 +43,9 @@ def scrape_current(now, full, old):
     ym = {m: y for y, m in months}
     year_of_month = lambda m: ym.get(m, now.year)
 
-    # 公開済みのステージ（レギュラー／セミファイナル／ファイナル）の個人成績
-    stages = {}
-    for stage, href in stage_links(stats_page).items():
-        stages[stage] = parse_stats(fetch(href))
-    if not stages:  # タブが読めなくても表示中の成績は使う
-        stages["R"] = parse_stats(stats_page)
+    # 個人成績はレギュラーシーズンのみ（成績ページの既定表示がポストシーズンに変わっても固定）
+    href = regular_stats_href(stats_page)
+    players = parse_stats(fetch(href) if href and "season=" in href else stats_page)
 
     # 過去に取った月はそのまま使い、必要な月だけ取り直す
     by_month = dict(old.get("matchesByMonth") or {})
@@ -66,7 +63,7 @@ def scrape_current(now, full, old):
         "season": season_label(months[0][0] if months else now.year),
         "teams": {tid: {"name": full_, "short": short} for tid, (full_, short, _) in TEAMS.items()},
         "standings": parse_standings(top),
-        "stages": stages,
+        "players": players,
         "matchesByMonth": by_month,
     }
 
@@ -75,16 +72,16 @@ def scrape_history(now, data, old):
     players = {}
     for tid, (_, _, slug) in TEAMS.items():
         players.update(parse_team_page(fetch(f"/teams/{slug}/"), tid))
-    team_stages = parse_team_stage_points(fetch_text("/assets/js/main.bundle.js"))
+    team_regular = parse_team_regular_points(fetch_text("/assets/js/main.bundle.js"))
 
-    # 今季のステージ別個人成績を保存しておき、翌シーズン以降も「過去のセミファイナル・ファイナル」として見られるようにする
+    # 今季の詳しい個人成績を保存しておき、翌シーズン以降も過去シーズンとして全項目を見られるようにする
     archive = dict(old.get("archive") or {})
-    archive[data["season"]] = data["stages"]
+    archive[data["season"]] = data["players"]
 
     return {
         "updatedAt": now.isoformat(timespec="seconds"),
         "players": players,
-        "teamStages": team_stages,
+        "teamRegular": team_regular,
         "archive": archive,
     }
 
@@ -98,7 +95,7 @@ def main():
     changed = save_if_changed(DATA, old_data, data)
     matches = [m for ms in data["matchesByMonth"].values() for m in ms]
     print(f"data.json: {'updated' if changed else 'no change'} "
-          f"({len(data['standings'])} teams, stages={ {k: len(v) for k, v in data['stages'].items()} }, "
+          f"({len(data['standings'])} teams, {len(data['players'])} players, "
           f"{sum(1 for m in matches if m['games'])}/{len(matches)} matches with results)")
 
     if full or not HISTORY.exists():
@@ -106,7 +103,7 @@ def main():
         hist = scrape_history(now, data, old_hist)
         changed = save_if_changed(HISTORY, old_hist, hist)
         print(f"history.json: {'updated' if changed else 'no change'} "
-              f"({len(hist['players'])} players, {len(hist['teamStages'])} teams, archive={list(hist['archive'])})")
+              f"({len(hist['players'])} players, {len(hist['teamRegular'])} teams, archive={list(hist['archive'])})")
 
 
 if __name__ == "__main__":

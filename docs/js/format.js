@@ -1,8 +1,6 @@
 // 数値・日付の表示形式
 
 export const DOW = ["日", "月", "火", "水", "木", "金", "土"];
-export const STAGE_LABEL = { R: "レギュラー", SF: "セミファイナル", F: "ファイナル" };
-export const STAGE_ORDER = ["R", "SF", "F"];
 
 export function jstNow() { return new Date(Date.now() + 9 * 3600e3); }
 export function todayStr() { return jstNow().toISOString().slice(0, 10); }

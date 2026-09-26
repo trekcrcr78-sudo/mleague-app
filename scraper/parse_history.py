@@ -1,7 +1,7 @@
 """過去シーズンの成績の解析。
 
 - 選手別: 各チームページの「対戦成績」表（レギュラーシーズンのみ。セミファイナル・ファイナルは含まない）
-- チーム別: 累計ポイントページが読み込む JS 内の、シーズン×ステージごとのチームポイント
+- チーム別: 累計ポイントページが読み込む JS 内の、シーズンごとのレギュラーのチームポイント
 """
 import re
 
@@ -37,14 +37,11 @@ def parse_team_page(soup, tid):
     return players
 
 
-def parse_team_stage_points(js):
-    """累計ポイントページの JS から {チームID: {"2018-19": {"R":..,"SF":..,"F":..}}} を作る。"""
+def parse_team_regular_points(js):
+    """累計ポイントページの JS から {チームID: {"2018-19": レギュラーのポイント}} を作る。"""
     teams = {}
     for block in re.findall(r"\{team_name:\"[^\"]+\"[^{}]*\}", js):
         tid = team_id(re.search(r'team_name:"([^"]+)"', block).group(1))
-        seasons = {}
-        for season, stage, value in re.findall(r'"(\d{4}-\d{2}) (R|SF|F)":(-?[\d.]+)', block):
-            seasons.setdefault(season, {})[stage] = float(value)
-        # 参戦前のシーズンは全ステージ 0 なので落とす
-        teams[tid] = {s: v for s, v in sorted(seasons.items()) if any(v.values())}
+        seasons = {s: float(v) for s, v in re.findall(r'"(\d{4}-\d{2}) R":(-?[\d.]+)', block)}
+        teams[tid] = {s: v for s, v in sorted(seasons.items()) if v}  # 参戦前のシーズンは 0
     return teams
