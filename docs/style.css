@@ -266,3 +266,30 @@ button { font: inherit; color: inherit; }
 .fav-btn[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
 
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+
+/* ---------- 通算・ステージ ---------- */
+.plink { cursor: pointer; text-decoration: underline; text-decoration-color: var(--axis); text-underline-offset: 3px; }
+.plink:hover { text-decoration-color: currentColor; }
+.muted { color: var(--muted); }
+.strong { font-weight: 750; }
+.segmented { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; padding: 3px; margin: 0 0 12px; background: var(--surface-2); border-radius: 10px; }
+.segmented__item { border: 0; background: none; border-radius: 8px; padding: 7px 8px; font-size: 13px; font-weight: 650; color: var(--ink-2); cursor: pointer; }
+.segmented__item[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
+.stage-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stage-card { background: var(--surface); border: 1px solid var(--ring); border-radius: 12px; padding: 10px 12px; min-width: 0; }
+.stage-card__label { font-size: 11px; font-weight: 700; color: var(--muted); }
+.stage-card__pts { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.stage-card__sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.career { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.career th { font-size: 11px; font-weight: 600; color: var(--muted); text-align: right; padding: 10px 12px 6px; }
+.career th:first-child, .career td:first-child { text-align: left; }
+.career td { padding: 9px 12px; border-top: 1px solid var(--line); text-align: right; vertical-align: middle; }
+.career tr.is-current td { background: var(--accent-soft); }
+.career__season { display: flex; align-items: center; gap: 6px; font-weight: 650; }
+.career__stage { font-size: 11px; color: var(--muted); }
+.career__pts { font-weight: 750; }
+.bar { height: 4px; border-radius: 2px; background: var(--surface-2); margin-top: 3px; margin-left: auto; width: 72px; display: flex; justify-content: flex-end; overflow: hidden; }
+.bar__fill { display: block; height: 100%; border-radius: 2px; }
+.bar__fill.is-pos { background: var(--pos); }
+.bar__fill.is-neg { background: var(--neg); }
+.team-hist td, .team-hist th { padding-left: 8px; padding-right: 8px; }
