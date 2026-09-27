@@ -338,3 +338,6 @@ button { font: inherit; color: inherit; }
 .standings.champions td.season { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; padding-left: 12px; }
 .standings.champions td.team { font-weight: 650; font-size: 13.5px; white-space: normal; }
 .standings.champions td.is-fav-text { color: var(--accent); }
+
+/* ---------- 画面下の注意書き ---------- */
+.app-footer { margin: 28px 4px 0; font-size: 11px; line-height: 1.6; color: var(--muted); text-align: center; }

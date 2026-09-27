@@ -30,7 +30,7 @@ function render() {
   if (!state.data) return;
   hideTooltip();
   const scrolls = [...content.querySelectorAll(".chips")].map(r => r.scrollLeft);
-  content.replaceChildren(...[v.render()].flat(Infinity).filter(Boolean));
+  content.replaceChildren(...[v.render()].flat(Infinity).filter(Boolean), h("p", { class: "app-footer" }, "非公式・個人運営のファンアプリです。データの権利は各権利者に帰属します。"));
   keepChipsInView(scrolls);
   v.after?.();
 }
