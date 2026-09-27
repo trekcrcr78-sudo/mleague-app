@@ -1,6 +1,7 @@
 """取得と数値変換まわりの共通処理。"""
 import re
 import time
+import unicodedata
 import urllib.request
 from datetime import timedelta, timezone
 
@@ -65,6 +66,19 @@ def num(s):
         return float(s)
     except ValueError:  # 「―」や未開催試合のプレースホルダ
         return None
+
+
+# 選手名の表記ゆれ（例: 松ヶ瀬 / 松ケ瀬）を同一人物とみなすための置き換え
+NAME_VARIANTS = [("ヶ", "ケ"), ("ヵ", "カ"), ("俱", "倶"), ("髙", "高"), ("﨑", "崎"), ("邊", "辺"), ("邉", "辺"),
+                 ("齋", "斎"), ("齊", "斉"), ("澤", "沢"), ("濱", "浜"), ("・", "")]
+
+
+def name_key(name):
+    """表記ゆれを吸収した比較用のキー（表示には使わない）"""
+    n = unicodedata.normalize("NFKC", norm(name))
+    for a, b in NAME_VARIANTS:
+        n = n.replace(a, b)
+    return n
 
 
 def season_label(start_year):

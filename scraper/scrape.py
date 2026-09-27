@@ -11,10 +11,11 @@
 import json
 import sys
 import urllib.parse
+from collections import Counter
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from common import BASE, JST, TEAMS, fetch, fetch_text, season_label
+from common import BASE, JST, TEAMS, fetch, fetch_text, name_key, season_label
 from parse_history import compute_standings, parse_team_page, parse_team_stage_points
 from parse_live import parse_month, parse_standings, parse_stats, regular_stats_href, season_months
 from parse_wikipedia import (article_url, fetch_article_html, fetch_team_results_html, fetch_titles_html,
@@ -80,7 +81,7 @@ def scrape_wikipedia(now, current_season, old_wiki):
     fetched = old_wiki.get("fetchedAt")
     fresh = fetched and now - datetime.fromisoformat(fetched) < WIKI_REFRESH
     if fresh and "titles" in old_wiki and "teams" in old_wiki and all(s in old_wiki.get("seasons", {}) for s in wanted):
-        return old_wiki
+        return json.loads(json.dumps(old_wiki))  # コピーを返す（後で書き換えても前回分との比較が狂わないように）
     seasons, sources, errors = {}, {}, []
     for s in wanted:
         try:
@@ -151,12 +152,36 @@ def cross_check(players, wiki):
     return compared, mismatches
 
 
+def unify_names(wiki, official_names):
+    """Wikipedia の選手名の表記ゆれを1つにそろえる（公式の表記があればそれ、なければ最も多い表記）。"""
+    counts = Counter(r["name"] for rows in wiki.get("seasons", {}).values() for r in rows)
+    counts.update(t["name"] for t in wiki.get("titles", []))
+    groups = {}
+    for n in list(official_names) + list(counts):
+        groups.setdefault(name_key(n), set()).add(n)
+    canonical = {}
+    for variants in groups.values():
+        official = [n for n in variants if n in official_names]
+        best = official[0] if official else max(variants, key=lambda n: (counts[n], n))
+        for n in variants:
+            canonical[n] = best
+    changed = Counter()
+    for rows in list(wiki.get("seasons", {}).values()) + [wiki.get("titles", [])]:
+        for r in rows:
+            if canonical.get(r["name"], r["name"]) != r["name"]:
+                changed[(r["name"], canonical[r["name"]])] += 1
+                r["name"] = canonical[r["name"]]
+    for (a, b), n in changed.items():
+        print(f"  unify: {a} -> {b} ({n}件)")
+
+
 def scrape_history(now, data, old):
     players = {}
     for tid, (_, _, slug) in TEAMS.items():
         players.update(parse_team_page(fetch(f"/teams/{slug}/"), tid))
     team_stages = parse_team_stage_points(fetch_text("/assets/js/main.bundle.js"))
     wiki = scrape_wikipedia(now, data["season"], old.get("wiki") or {})
+    unify_names(wiki, set(players) | {p["name"] for p in data["players"]})
     standings = merge_standings(compute_standings(team_stages), wiki.get("teams", {}))
     compared, mismatches = cross_check(players, wiki)
     print(f"cross-check: {compared} rows compared, {len(mismatches)} mismatches")
