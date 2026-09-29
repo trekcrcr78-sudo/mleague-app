@@ -1,6 +1,6 @@
 // アプリの状態。set() で変更すると購読者（main.js の再描画）に通知される。
 
-const PERSIST = ["tab", "fav", "chartTeams", "standingsCols", "showFavSummary"];
+const PERSIST = ["tab", "fav", "chartTeams", "standingsCols", "showFavSummary", "favRecent"];
 
 function read(k, d) { try { const v = localStorage.getItem("ml:" + k); return v == null ? d : JSON.parse(v); } catch { return d; } }
 function write(k, v) { try { localStorage.setItem("ml:" + k, JSON.stringify(v)); } catch {} }
@@ -19,6 +19,7 @@ export const state = {
   standingsView: { scope: "current", season: null },
   standingsCols: read("standingsCols", "standard"), // 今季の順位表の列: standard / border / placements
   showFavSummary: read("showFavSummary", true),   // 日程タブの一番上に推しチームのまとめを出すか
+  favRecent: read("favRecent", 5),                 // まとめの直近の着順を何半荘出すか（5 / 10）
 };
 
 const listeners = new Set();

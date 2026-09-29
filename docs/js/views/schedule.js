@@ -21,7 +21,8 @@ function favSummaryCard(team) {
   const st = state.data.standings.find(r => r.team === team);
   if (!st) return null;
   const border = borderDiffs()[team];
-  const s = favSummary(team);
+  const n = state.favRecent === 10 ? 10 : 5;
+  const s = favSummary(team, n);
   const num = (label, value, cls = "") => h("div", {}, h("span", {}, label), h("b", { class: cls }, value));
   const signed = v => v == null ? "―" : v > 0 ? `+${v.toFixed(1)}` : pt(v);
   let matchBox = null;
@@ -39,9 +40,24 @@ function favSummaryCard(team) {
     h("div", { class: "favsum__nums" },
       num("順位", `${st.rank}位`), num("ポイント", pt(st.points), ptClass(st.points)), num("ボーダー", signed(border), ptClass(border))),
     matchBox,
-    s.recent.length ? h("div", { class: "favsum__form" },
-      h("div", { class: "favsum__label" }, h("span", {}, `直近${s.recent.length}半荘の着順（古い→新しい）`)),
-      h("div", { class: "favsum__dots" }, s.recent.map(r => h("span", { class: "favsum__dot" + (r === 1 ? " r1" : "") }, r)))) : null);
+    s.recent.length ? h("div", { class: "favsum__form" + (n === 10 ? " is-10" : "") },
+      h("div", { class: "favsum__label" }, h("span", {}, `直近${s.recent.length}半荘の着順（新しい→古い）`), recentToggle(n)),
+      h("div", { class: "favsum__dots" }, s.recent.map((r, i) => h("span", { class: "favsum__dot" + (r === 1 ? " r1" : "") + (i === 0 ? " is-latest" : "") }, r))),
+      n === 10 ? recentBreakdown(s.recent) : null) : null);
+}
+
+// 5／10 半荘の切り替え（カードのタップでチーム詳細が開かないよう、押したときは止める）
+function recentToggle(n) {
+  return h("span", { class: "favsum__toggle", role: "group", "aria-label": "直近の半荘数" },
+    [5, 10].map(v => h("button", { type: "button", "aria-pressed": String(v === n),
+      onclick: e => { e.stopPropagation(); set({ favRecent: v }); },
+      onkeydown: e => e.stopPropagation() }, v)));
+}
+
+function recentBreakdown(recent) {
+  const c = [1, 2, 3, 4].map(k => recent.filter(r => r === k).length);
+  const avg = recent.reduce((a, r) => a + r, 0) / recent.length;
+  return h("div", { class: "favsum__breakdown" }, `1着${c[0]}・2着${c[1]}・3着${c[2]}・4着${c[3]}（平均着順 ${avg.toFixed(2)}）`);
 }
 
 export function viewSchedule() {

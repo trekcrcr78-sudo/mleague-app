@@ -289,7 +289,7 @@ export function yakumanOf(name) {
 }
 
 // ---------- 推しチームのまとめ（日程タブの一番上） ----------
-// 今日の対局（なければ次の対局）と、直近の半荘の着順（古い→新しい）
+// 今日の対局（なければ次の対局）と、直近の半荘の着順（新しい→古い）
 export function favSummary(team, recentCount = 5) {
   const today = todayStr();
   const matches = allMatches();
@@ -301,5 +301,5 @@ export function favSummary(team, recentCount = 5) {
     const r = g.results.find(x => teamOfPlayer(x.name) === team);
     if (r) recent.push(r.rank);
   }
-  return { match, isToday: match?.date === today, tablesThatDay, recent: recent.slice(-recentCount) };
+  return { match, isToday: match?.date === today, tablesThatDay, recent: recent.slice(-recentCount).reverse() };
 }
