@@ -289,3 +289,75 @@ def parse_team_results(html_by_stage):
                         for i in range(1, len(cells) - 1, 2) if cells[i]]
             out.setdefault(m.group(1), {})[stage] = rows
     return out
+
+
+# ---------- 役満（「Mリーグ」記事の「役満」節の役満達成一覧） ----------
+STAGE_NAMES = {"レギュラー": "R", "セミファイナル": "SF", "ファイナル": "F"}
+SEATS = ["東家", "南家", "西家", "北家"]
+
+
+def fetch_yakuman_html():
+    sections = _api({"action": "parse", "page": "Mリーグ", "prop": "sections"})["sections"]
+    index = next(s["index"] for s in sections if clean_label(s["line"]) == "役満")
+    return _api({"action": "parse", "page": "Mリーグ", "prop": "text", "section": index})["text"]
+
+
+def expand_rows(table):
+    """rowspan を展開して、各行を [(文字, style), ...] で返す（見出し行を含む）。"""
+    grid, rows = {}, []
+    for r, tr in enumerate(table.find_all("tr")):
+        c, row = 0, []
+        for cell in tr.find_all(["th", "td"]):
+            while (r, c) in grid:
+                row.append(grid.pop((r, c)))
+                c += 1
+            item = (clean_label(cell.get_text(" ")), cell.get("style", "").replace(" ", "").lower())
+            for dr in range(1, int(cell.get("rowspan", 1))):
+                grid[(r + dr, c)] = item
+            row.append(item)
+            c += 1
+        while (r, c) in grid:
+            row.append(grid.pop((r, c)))
+            c += 1
+        rows.append(row)
+    return rows
+
+
+def parse_yakuman(html):
+    """[{season, stage, date, game, hand, yaku, seats:[東,南,西,北], winner, loser(None=ツモ), dealer}]
+
+    和了者は緑（#ccffcc）、放銃者は赤（#ffcccc）の背景で示されている。
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    table = next((t for t in soup.find_all("table") if "役" in (t.find("tr").get_text() if t.find("tr") else "")), None)
+    if table is None:
+        raise ValueError("役満の一覧が見つかりません")
+    rows = expand_rows(table)
+    head = [text for text, _ in rows[0]]
+    col = {name: head.index(name) for name in ("シーズン", "シリーズ", "日付", "回", "局", "役", *SEATS) if name in head}
+    out = []
+    for row in rows[1:]:
+        if len(row) < len(head):
+            continue
+        cell = lambda name: row[col[name]][0]
+        seats = [row[col[s]] for s in SEATS]
+        winner = next((n for n, st in seats if "ccffcc" in st), None)
+        loser = next((n for n, st in seats if "ffcccc" in st), None)
+        if not winner or not re.match(r"\d{4}-\d{2}", cell("シーズン")):
+            continue
+        y, m, d = (int(x) for x in re.findall(r"\d+", cell("日付"))[:3])
+        hand = cell("局")
+        k = re.search(r"[東南西北](\d)局", hand)  # 親は「○1局」なら東家、「○2局」なら南家…
+        out.append({
+            "season": re.match(r"\d{4}-\d{2}", cell("シーズン")).group(),
+            "stage": STAGE_NAMES.get(cell("シリーズ"), cell("シリーズ")),
+            "date": f"{y}-{m:02d}-{d:02d}",
+            "game": int(re.search(r"\d+", cell("回")).group()) if re.search(r"\d+", cell("回")) else None,
+            "hand": hand,
+            "yaku": cell("役"),
+            "seats": [n for n, _ in seats],
+            "winner": winner,
+            "loser": loser,
+            "dealer": seats[int(k.group(1)) - 1][0] if k else None,
+        })
+    return out

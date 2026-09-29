@@ -3,7 +3,7 @@
 import { actions } from "./actions.js";
 import { h, pressable } from "./dom.js";
 import { dayLabel, int, pct, pt, ptClass } from "./format.js";
-import { AWARD_SHORT, matchStatus, playersAsOfInfo, teamOfPlayer, teamShort, wikiSource } from "./model.js";
+import { AWARD_SHORT, matchStatus, playersAsOfInfo, STAGE_NAME, teamOfPlayer, teamShort, wikiSource } from "./model.js";
 import { state } from "./store.js";
 
 // チーム名の札。推しチームの色付けは日程だけで使う（markFav: true）
@@ -51,10 +51,10 @@ export function sectionTitle(text) { return h("h2", { class: "section-title" }, 
 
 // 過去シーズンの出典（Wikipedia, CC BY-SA 4.0）
 export function sourceNote(seasons) {
-  const links = seasons.map(s => [s, wikiSource(s)]).filter(([, url]) => url);
+  const links = seasons.map(s => [s, s === "yakuman" ? state.history?.yakuman?.source : wikiSource(s)]).filter(([, url]) => url);
   if (!links.length) return null;
   return h("p", { class: "note source" }, "過去シーズンの出典: 公式サイト、Wikipedia（",
-    links.map(([s, url], i) => [i ? "・" : "", h("a", { href: url, target: "_blank", rel: "noopener" }, { titles: "個人タイトル", teams: "チーム成績" }[s] ?? s)]),
+    links.map(([s, url], i) => [i ? "・" : "", h("a", { href: url, target: "_blank", rel: "noopener" }, { titles: "個人タイトル", teams: "チーム成績", yakuman: "役満" }[s] ?? s)]),
     "、CC BY-SA 4.0）");
 }
 
@@ -82,4 +82,19 @@ export function asOfLine() {
   return h("div", { class: "asof" },
     h("span", { class: "asof__main" }, done ? "レギュラーシーズン最終成績" : asOf ? `${dayLabel(asOf)}終了時点の成績` : "開幕前の成績"),
     pending && !done ? h("span", { class: "asof__sub" }, `${dayLabel(pending)}の分は、その日の全試合が公式に反映されてからまとめて更新します`) : null);
+}
+
+// 役満1件（結果タブの一覧用）。markFav: 推しチームが関わったもの（アガリ・放銃）を緑に
+export function yakumanCard(y, { markFav = false } = {}) {
+  const fav = markFav && state.fav && (y.winnerTeam === state.fav || y.loserTeam === state.fav);
+  const team = t => h("small", { class: "yk__team" + (markFav && t === state.fav ? " is-fav" : "") }, teamShort(t));
+  return h("section", { class: "card yk" + (fav ? " is-fav" : "") },
+    h("div", { class: "yk__head" }, h("span", { class: "yk__name" }, y.yaku),
+      h("span", { class: "yk__meta" }, `${y.date.replaceAll("-", "/")}　${STAGE_NAME[y.stage] ?? y.stage}`)),
+    h("div", { class: "yk__who" },
+      playerLink(y.winner, { view: "career" }), team(y.winnerTeam),
+      h("span", { class: "title-badge" }, y.loser ? "ロン" : "ツモ"),
+      y.dealer === y.winner ? h("span", { class: "title-badge" }, "親") : null),
+    y.loser ? h("div", { class: "yk__loser" }, "放銃: ", playerLink(y.loser, { view: "career" }), team(y.loserTeam)) : null,
+    h("div", { class: "yk__hand" }, `第${y.game ?? "?"}戦 ${y.hand}`));
 }

@@ -277,3 +277,13 @@ export function teamPlacements() {
   }
   return out;
 }
+
+// ---------- 役満（Wikipedia「Mリーグ」役満達成一覧） ----------
+export const STAGE_NAME = { R: "レギュラー", SF: "セミファイナル", F: "ファイナル" };
+export function yakumanRows() {
+  return [...(state.history?.yakuman?.rows ?? [])].sort((a, b) => b.date.localeCompare(a.date) || (b.game ?? 0) - (a.game ?? 0));
+}
+export function yakumanOf(name) {
+  const rows = yakumanRows();
+  return { won: rows.filter(r => r.winner === name), dealt: rows.filter(r => r.loser === name) };
+}

@@ -19,7 +19,8 @@ from common import BASE, JST, TEAMS, fetch, fetch_text, name_key, season_label
 from parse_history import compute_standings, parse_team_page, parse_team_stage_points
 from parse_live import parse_month, parse_standings, parse_stats, season_months, stats_hrefs
 from parse_wikipedia import (article_url, fetch_article_html, fetch_team_results_html, fetch_titles_html,
-                             parse_postseason, parse_season, parse_team_results, parse_titles)
+                             fetch_yakuman_html, parse_postseason, parse_season, parse_team_results, parse_titles,
+                             parse_yakuman)
 
 DOCS = Path(__file__).resolve().parent.parent / "docs"
 DATA = DOCS / "data.json"
@@ -214,8 +215,36 @@ def check_postseason(wiki, team_stages):
                     del stages[stage]
 
 
-def unify_names(wiki, official_names):
-    """Wikipedia の選手名の表記ゆれを1つにそろえる（公式の表記があればそれ、なければ最も多い表記）。"""
+def scrape_yakuman(now, old, wiki, data, players):
+    """役満の一覧（Wikipedia）。今季に出た分も翌朝には入るよう、毎日の全体更新で取り直す。"""
+    old_y = old.get("yakuman") or {}
+    try:
+        rows = parse_yakuman(fetch_yakuman_html())
+    except Exception as e:
+        print("wikipedia: 役満:", e)
+        return old_y
+    # 当時の所属チーム: そのシーズンの成績表 → 今季の成績 → 公式チームページの順に探す
+    for r in rows:
+        season_rows = list(wiki.get("seasons", {}).get(r["season"], []))
+        for rows_ in wiki.get("postseason", {}).get(r["season"], {}).values():
+            season_rows += rows_
+        if r["season"] == data["season"]:
+            season_rows += data["players"]
+        team_of = {x["name"]: x["team"] for x in season_rows}
+        for key in ("winner", "loser"):
+            n = r[key]
+            r[key + "Team"] = team_of.get(n) or (players.get(n) or {}).get("team") if n else None
+        r["yaku"] = r["yaku"].replace("（単騎）", "単騎")
+    main_article = "https://ja.wikipedia.org/wiki/" + urllib.parse.quote("Mリーグ")
+    return {"fetchedAt": now.isoformat(timespec="seconds"), "source": main_article + "#" + urllib.parse.quote("役満"),
+            "license": "CC BY-SA 4.0", "rows": rows}
+
+
+def unify_names(wiki, official_names, extra_rows=()):
+    """Wikipedia の選手名の表記ゆれを1つにそろえる（公式の表記があればそれ、なければ最も多い表記）。
+
+    extra_rows: 役満の一覧など、winner/loser/dealer/seats に選手名を持つ行も一緒にそろえる。
+    """
     post_rows = [rows for stages in wiki.get("postseason", {}).values() for rows in stages.values()]
     counts = Counter(r["name"] for rows in list(wiki.get("seasons", {}).values()) + post_rows for r in rows)
     counts.update(t["name"] for t in wiki.get("titles", []))
@@ -234,6 +263,12 @@ def unify_names(wiki, official_names):
             if canonical.get(r["name"], r["name"]) != r["name"]:
                 changed[(r["name"], canonical[r["name"]])] += 1
                 r["name"] = canonical[r["name"]]
+    for r in extra_rows:
+        for key in ("winner", "loser", "dealer"):
+            if r.get(key) and canonical.get(r[key], r[key]) != r[key]:
+                changed[(r[key], canonical[r[key]])] += 1
+                r[key] = canonical[r[key]]
+        r["seats"] = [canonical.get(n, n) for n in r.get("seats", [])]
     for (a, b), n in changed.items():
         print(f"  unify: {a} -> {b} ({n}件)")
 
@@ -244,7 +279,8 @@ def scrape_history(now, data, old):
         players.update(parse_team_page(fetch(f"/teams/{slug}/"), tid))
     team_stages = parse_team_stage_points(fetch_text("/assets/js/main.bundle.js"))
     wiki = scrape_wikipedia(now, data["season"], old.get("wiki") or {})
-    unify_names(wiki, set(players) | {p["name"] for p in data["players"]})
+    yakuman = scrape_yakuman(now, old, wiki, data, players)
+    unify_names(wiki, set(players) | {p["name"] for p in data["players"]}, yakuman.get("rows", []))
     check_postseason(wiki, team_stages)
     standings = merge_standings(compute_standings(team_stages), wiki.get("teams", {}))
     compared, mismatches = cross_check(players, wiki)
@@ -267,6 +303,7 @@ def scrape_history(now, data, old):
         "archive": archive,
         "archivePost": archive_post,
         "wiki": wiki,
+        "yakuman": yakuman,
     }
 
 

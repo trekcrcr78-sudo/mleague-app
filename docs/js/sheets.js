@@ -1,10 +1,10 @@
 // 下から出てくる詳細シート（試合・選手・チーム）
 
 import { actions } from "./actions.js";
-import { asOfLine, awardValue, gameBlock, note, resultCard, sourceNote, stat, teamTag, titleBadges } from "./components.js";
+import { asOfLine, awardValue, gameBlock, note, playerLink, resultCard, sourceNote, stat, teamTag, titleBadges } from "./components.js";
 import { $, h, pressable, segmented } from "./dom.js";
 import { dayLabel, dec2, int, pct, pt, ptClass, round1 } from "./format.js";
-import { aggregate, allMatches, currentPlayer, isActive, playerLog, postseasonRows, seasonRows, teamName, teamOfPlayer, teamShort, titlesOf } from "./model.js";
+import { aggregate, allMatches, currentPlayer, isActive, playerLog, postseasonRows, seasonRows, STAGE_NAME, teamName, teamOfPlayer, teamShort, titlesOf, yakumanOf } from "./model.js";
 import { setFav, state } from "./store.js";
 
 let current = null; // 開いているシートの描画関数（データ更新時に描き直す）
@@ -92,6 +92,7 @@ function playerCareer(name, team, rows, tabs, highlight) {
         h("span", { class: "titles__award" }, t.award),
         h("span", { class: "titles__value" }, awardValue(t)))))),
     ] : null,
+    yakumanSection(name),
     h("h3", { class: "section-title" }, "シーズン別"),
     h("section", { class: "card" }, h("table", { class: "career" },
       h("thead", {}, h("tr", {}, h("th", {}, "シーズン"), h("th", {}, "ポイント"), h("th", {}, "半荘"), h("th", {}, "トップ"), h("th", {}, "4着回避"))),
@@ -106,7 +107,25 @@ function playerCareer(name, team, rows, tabs, highlight) {
         h("td", {}, pct(r.lastAvoidRate))))))),
     note("レギュラーシーズンの成績です。チームは各シーズン当時の所属です。平均打点はアガリ回数が公開されていないため、半荘数で重み付けした目安です。"),
     postseasonSection(name),
-    sourceNote([...rows.filter(r => !r.current).map(r => r.season), ...(titles.length ? ["titles"] : [])]),
+    sourceNote([...rows.filter(r => !r.current).map(r => r.season), ...(titles.length ? ["titles"] : []),
+      ...(yakumanOf(name).won.length || yakumanOf(name).dealt.length ? ["yakuman"] : [])]),
+  ];
+}
+
+// 役満（アガった・放銃した。関わったことがある選手だけ表示）
+function yakumanSection(name) {
+  const { won, dealt } = yakumanOf(name);
+  if (!won.length && !dealt.length) return null;
+  const item = (y, isWin) => h("li", {},
+    h("span", { class: "titles__season" }, y.date.replaceAll("-", "/")),
+    h("span", { class: "titles__award" }, y.yaku, h("small", { class: "yk-stage" }, STAGE_NAME[y.stage] ?? "")),
+    h("span", { class: "titles__value" }, isWin
+      ? [y.loser ? "ロン ← " : "ツモ", y.loser ? playerLink(y.loser, { view: "career" }) : null]
+      : ["放銃 → ", playerLink(y.winner, { view: "career" })]));
+  const parts = [won.length ? `アガリ${won.length}` : null, dealt.length ? `放銃${dealt.length}` : null].filter(Boolean).join("・");
+  return [
+    h("h3", { class: "section-title" }, `役満（${parts}）`),
+    h("section", { class: "card" }, h("ul", { class: "titles yk-list" }, won.map(y => item(y, true)), dealt.map(y => item(y, false)))),
   ];
 }
 

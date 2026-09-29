@@ -15,6 +15,7 @@ export const state = {
   scheduleFilter: "all",
   players: { scope: "season", pastSeason: null, who: "all", sort: "points", team: "all" },
   resultTeam: "all",
+  resultView: "results", // 結果タブ: results / yakuman
   standingsView: { scope: "current", season: null },
   standingsCols: read("standingsCols", "standard"), // 今季の順位表の列: standard / border / placements
 };
