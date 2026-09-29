@@ -83,12 +83,18 @@ def leaf_headers(table):
     return [grid.get((bottom, c), "") for c in range(width)], len(header_rows)
 
 
-def season_player_table(html):
-    """『レギュラーシーズン（成績）』節の、選手ごとの成績表（いちばん列の多いもの）を探す。"""
+SECTIONS = {"R": "レギュラーシーズン（成績）", "SF": "セミファイナルシリーズ（成績）", "F": "ファイナルシリーズ（成績）"}
+
+
+def season_player_table(html, section=SECTIONS["R"]):
+    """指定した節（例: 『レギュラーシーズン（成績）』）の、選手ごとの成績表（いちばん列の多いもの）を探す。
+
+    「ファイナルシリーズ（成績）」が「セミファイナルシリーズ（成績）」に部分一致しないよう、見出しは完全一致で探す。
+    """
     soup = BeautifulSoup(html, "html.parser")
-    head = next((x for x in soup.find_all(["h2", "h3", "h4"]) if "レギュラーシーズン（成績）" in x.get_text()), None)
+    head = next((x for x in soup.find_all(["h2", "h3", "h4"]) if clean_label(x.get_text()) == section), None)
     if head is None:
-        raise ValueError("レギュラーシーズン（成績）の節が見つかりません")
+        raise ValueError(f"{section}の節が見つかりません")
     tables = []
     for el in (head.find_parent("div") or head).find_all_next():
         if el.name in ("h2", "h3") and el is not head:
@@ -100,8 +106,61 @@ def season_player_table(html):
     return max(tables, key=lambda t: len(leaf_headers(t)[0]))
 
 
-def parse_season(html):
-    table = season_player_table(html)
+def parse_postseason(html, team_of=None):
+    """{"SF": [...], "F": [...]}。その節が無いシーズン（2018-19 のセミファイナルなど）は含めない。
+
+    個人成績の表がまだ書かれていない記事もあるので、その場合は日程・対戦成績の表（1半荘ごとの着順と pt）から集計する。
+    team_of: 選手名 -> チームID（対戦成績の表にはチームが無いため、同じシーズンのレギュラーの表から引く）
+    """
+    out = {}
+    for stage in ("SF", "F"):
+        try:
+            out[stage] = parse_season(html, SECTIONS[stage])
+        except ValueError:
+            rows = rows_from_game_log(html, SECTIONS[stage], team_of or {})
+            if rows:
+                out[stage] = [{**r, "fromLog": True} for r in rows]
+    return out
+
+
+WEEKDAYS = set("月火水木金土日")
+
+
+def rows_from_game_log(html, section, team_of):
+    """節の中の日程・対戦成績の表から、選手ごとの半荘数・pt・着順回数を集計する。"""
+    soup = BeautifulSoup(html, "html.parser")
+    head = next((x for x in soup.find_all(["h2", "h3", "h4"]) if clean_label(x.get_text()) == section), None)
+    if head is None:
+        return []
+    stats = {}
+    for el in (head.find_parent("div") or head).find_all_next():
+        if el.name in ("h2", "h3") and el is not head:
+            break
+        if el.name != "table" or "#" not in (el.find("tr").get_text() if el.find("tr") else ""):
+            continue
+        for tr in el.find_all("tr"):
+            cells = [clean_label(c.get_text(" ")) for c in tr.find_all(["th", "td"])]
+            # 行の中から「選手名, pt」の組を先頭から4つ取り出す（1位〜4位の順）
+            pairs = []
+            for a, b in zip(cells, cells[1:]):
+                if (len(a) >= 2 and a not in WEEKDAYS and wiki_num(a) is None and wiki_num(b) is not None
+                        and not any(a == p[0] for p in pairs)):
+                    pairs.append((a, wiki_num(b)))
+                if len(pairs) == 4:
+                    break
+            if len(pairs) != 4:
+                continue
+            for rank, (name, point) in enumerate(pairs, 1):
+                s = stats.setdefault(name, {"name": name, "team": team_of.get(name, ""), "games": 0, "points": 0.0,
+                                            "r1": 0, "r2": 0, "r3": 0, "r4": 0})
+                s["games"] += 1
+                s["points"] = round(s["points"] + point, 1)
+                s[f"r{rank}"] += 1
+    return list(stats.values())
+
+
+def parse_season(html, section=SECTIONS["R"]):
+    table = season_player_table(html, section)
     labels, n_head = leaf_headers(table)
     keys = [COLUMNS.get(l) for l in labels]
     if "name" not in keys or "points" not in keys:

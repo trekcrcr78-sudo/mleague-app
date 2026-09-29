@@ -17,9 +17,9 @@ from pathlib import Path
 
 from common import BASE, JST, TEAMS, fetch, fetch_text, name_key, season_label
 from parse_history import compute_standings, parse_team_page, parse_team_stage_points
-from parse_live import parse_month, parse_standings, parse_stats, regular_stats_href, season_months
+from parse_live import parse_month, parse_standings, parse_stats, season_months, stats_hrefs
 from parse_wikipedia import (article_url, fetch_article_html, fetch_team_results_html, fetch_titles_html,
-                             parse_season, parse_team_results, parse_titles)
+                             parse_postseason, parse_season, parse_team_results, parse_titles)
 
 DOCS = Path(__file__).resolve().parent.parent / "docs"
 DATA = DOCS / "data.json"
@@ -71,9 +71,18 @@ def scrape_current(now, full, old):
     ym = {m: y for y, m in months}
     year_of_month = lambda m: ym.get(m, now.year)
 
-    # 個人成績はレギュラーシーズンのみ（成績ページの既定表示がポストシーズンに変わっても固定）
-    href = regular_stats_href(stats_page)
+    # 個人成績の一覧はレギュラーシーズン（成績ページの既定表示がポストシーズンに変わっても固定）
+    hrefs = stats_hrefs(stats_page)
+    href = hrefs.get("R")
     players = parse_stats(fetch(href) if href and "season=" in href else stats_page)
+
+    # 今季のセミファイナル・ファイナルの個人成績は、毎日3時の全体更新のときだけ取り込む
+    # （前日分がそろった状態を「前日終了時点」としてまとめて切り替える）
+    if full:
+        postseason = {st: parse_stats(fetch(h)) for st, h in hrefs.items() if st in ("SF", "F")}
+        post_as_of = (now - timedelta(days=1)).date().isoformat() if postseason else None
+    else:
+        postseason, post_as_of = old.get("postseason") or {}, old.get("postseasonAsOf")
 
     # 過去に取った月はそのまま使い、必要な月だけ取り直す
     by_month = dict(old.get("matchesByMonth") or {})
@@ -86,14 +95,21 @@ def scrape_current(now, full, old):
             by_month[f"{y}-{m:02d}"] = parse_month(fetch(f"/games/?mly={y}&mlm={m}"), year_of_month)
 
     players, as_of = players_snapshot(players, by_month, old)
+    standings = parse_standings(top)
+    # レギュラーシーズンが全日程終わったか（選手の試合数の合計 = 各チームの予定試合数の合計）
+    regular_total = sum(r["totalGames"] for r in standings)
+    regular_complete = bool(regular_total) and sum(int(p.get("games") or 0) for p in players) >= regular_total
     return {
         "updatedAt": now.isoformat(timespec="seconds"),
         "source": BASE,
         "season": season_label(months[0][0] if months else now.year),
         "teams": {tid: {"name": full_, "short": short} for tid, (full_, short, _) in TEAMS.items()},
-        "standings": parse_standings(top),
+        "standings": standings,
         "players": players,
         "playersAsOf": as_of,
+        "regularComplete": regular_complete,
+        "postseason": postseason,
+        "postseasonAsOf": post_as_of,
         "matchesByMonth": by_month,
     }
 
@@ -104,17 +120,20 @@ def scrape_wikipedia(now, current_season, old_wiki):
     wanted = [season_label(y) for y in range(FIRST_SEASON, start)]
     fetched = old_wiki.get("fetchedAt")
     fresh = fetched and now - datetime.fromisoformat(fetched) < WIKI_REFRESH
-    if fresh and "titles" in old_wiki and "teams" in old_wiki and all(s in old_wiki.get("seasons", {}) for s in wanted):
+    if fresh and all(k in old_wiki for k in ("titles", "teams", "postseason")) and all(s in old_wiki.get("seasons", {}) for s in wanted):
         return json.loads(json.dumps(old_wiki))  # コピーを返す（後で書き換えても前回分との比較が狂わないように）
-    seasons, sources, errors = {}, {}, []
+    seasons, postseason, sources, errors = {}, {}, {}, []
     for s in wanted:
         try:
-            seasons[s] = parse_season(fetch_article_html(s))
+            html = fetch_article_html(s)
+            seasons[s] = parse_season(html)
+            postseason[s] = parse_postseason(html, {r["name"]: r["team"] for r in seasons[s]})
             sources[s] = article_url(s)
         except Exception as e:  # 1シーズン失敗しても前回の分を使い続ける
             errors.append(f"{s}: {e}")
             if s in old_wiki.get("seasons", {}):
                 seasons[s], sources[s] = old_wiki["seasons"][s], old_wiki["sources"][s]
+                postseason[s] = old_wiki.get("postseason", {}).get(s, {})
     try:
         titles = parse_titles(fetch_titles_html())
     except Exception as e:
@@ -131,7 +150,7 @@ def scrape_wikipedia(now, current_season, old_wiki):
     for e in errors:
         print("wikipedia:", e)
     return {"fetchedAt": now.isoformat(timespec="seconds"), "license": "CC BY-SA 4.0", "sources": sources,
-            "seasons": seasons, "titles": titles, "teams": teams}
+            "seasons": seasons, "postseason": postseason, "titles": titles, "teams": teams}
 
 
 def merge_standings(computed, wiki_teams):
@@ -176,9 +195,29 @@ def cross_check(players, wiki):
     return compared, mismatches
 
 
+def check_postseason(wiki, team_stages):
+    """セミファイナル・ファイナルの選手の pt をチームごとに足し、公式のステージ別ポイントと照合する。
+
+    対戦成績の表から集計した分（fromLog）が合わなければ、読み違いの可能性があるので載せない。
+    """
+    for season, stages in wiki.get("postseason", {}).items():
+        for stage in list(stages):
+            rows = stages[stage]
+            sums = {}
+            for r in rows:
+                sums[r["team"]] = sums.get(r["team"], 0) + (r["points"] or 0)
+            bad = [t for t, v in sums.items() if abs(v - team_stages.get(t, {}).get(season, {}).get(stage, 0)) > 0.25]
+            if bad:
+                from_log = any(r.get("fromLog") for r in rows)
+                print(f"  mismatch: {season} {stage} 選手ptの合計がチームと不一致 {bad}" + ("（対戦成績から集計した分なので載せない）" if from_log else ""))
+                if from_log:
+                    del stages[stage]
+
+
 def unify_names(wiki, official_names):
     """Wikipedia の選手名の表記ゆれを1つにそろえる（公式の表記があればそれ、なければ最も多い表記）。"""
-    counts = Counter(r["name"] for rows in wiki.get("seasons", {}).values() for r in rows)
+    post_rows = [rows for stages in wiki.get("postseason", {}).values() for rows in stages.values()]
+    counts = Counter(r["name"] for rows in list(wiki.get("seasons", {}).values()) + post_rows for r in rows)
     counts.update(t["name"] for t in wiki.get("titles", []))
     groups = {}
     for n in list(official_names) + list(counts):
@@ -190,7 +229,7 @@ def unify_names(wiki, official_names):
         for n in variants:
             canonical[n] = best
     changed = Counter()
-    for rows in list(wiki.get("seasons", {}).values()) + [wiki.get("titles", [])]:
+    for rows in list(wiki.get("seasons", {}).values()) + post_rows + [wiki.get("titles", [])]:
         for r in rows:
             if canonical.get(r["name"], r["name"]) != r["name"]:
                 changed[(r["name"], canonical[r["name"]])] += 1
@@ -206,6 +245,7 @@ def scrape_history(now, data, old):
     team_stages = parse_team_stage_points(fetch_text("/assets/js/main.bundle.js"))
     wiki = scrape_wikipedia(now, data["season"], old.get("wiki") or {})
     unify_names(wiki, set(players) | {p["name"] for p in data["players"]})
+    check_postseason(wiki, team_stages)
     standings = merge_standings(compute_standings(team_stages), wiki.get("teams", {}))
     compared, mismatches = cross_check(players, wiki)
     print(f"cross-check: {compared} rows compared, {len(mismatches)} mismatches")
@@ -215,6 +255,9 @@ def scrape_history(now, data, old):
     # 今季の詳しい個人成績を保存しておき、翌シーズン以降も過去シーズンとして全項目を見られるようにする
     archive = dict(old.get("archive") or {})
     archive[data["season"]] = data["players"]
+    archive_post = dict(old.get("archivePost") or {})
+    if data.get("postseason"):
+        archive_post[data["season"]] = data["postseason"]
 
     return {
         "updatedAt": now.isoformat(timespec="seconds"),
@@ -222,6 +265,7 @@ def scrape_history(now, data, old):
         "teamStages": team_stages,
         "standings": standings,
         "archive": archive,
+        "archivePost": archive_post,
         "wiki": wiki,
     }
 

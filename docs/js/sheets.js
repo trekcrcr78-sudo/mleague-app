@@ -4,7 +4,7 @@ import { actions } from "./actions.js";
 import { asOfLine, awardValue, gameBlock, note, resultCard, sourceNote, stat, teamTag, titleBadges } from "./components.js";
 import { $, h, pressable, segmented } from "./dom.js";
 import { dayLabel, dec2, int, pct, pt, ptClass, round1 } from "./format.js";
-import { aggregate, allMatches, currentPlayer, isActive, playerLog, seasonRows, teamName, teamOfPlayer, teamShort, titlesOf } from "./model.js";
+import { aggregate, allMatches, currentPlayer, isActive, playerLog, postseasonRows, seasonRows, teamName, teamOfPlayer, teamShort, titlesOf } from "./model.js";
 import { setFav, state } from "./store.js";
 
 let current = null; // 開いているシートの描画関数（データ更新時に描き直す）
@@ -79,7 +79,7 @@ function playerCareer(name, team, rows, tabs, highlight) {
   const titles = titlesOf(name);
   const span = total.firstSeason === total.lastSeason ? total.firstSeason : `${total.firstSeason}〜${isActive(name) ? "" : total.lastSeason}`;
   return [
-    hero(name, [teamTag(team), `${span}・${total.seasons}シーズン`], total.points, "通算ポイント"),
+    hero(name, [teamTag(team), `${span}・${total.seasons}シーズン`], total.points, "通算（レギュラー）"),
     tabs,
     h("div", { class: "stat-grid" },
       stat("半荘数", int(total.games)), stat("1半荘平均", pt(total.perGame), ptClass(total.perGame)), stat("平均着順", dec2(total.avgRank)),
@@ -105,7 +105,31 @@ function playerCareer(name, team, rows, tabs, highlight) {
         h("td", {}, r.r1 == null ? "–" : int(r.r1)),
         h("td", {}, pct(r.lastAvoidRate))))))),
     note("レギュラーシーズンの成績です。チームは各シーズン当時の所属です。平均打点はアガリ回数が公開されていないため、半荘数で重み付けした目安です。"),
+    postseasonSection(name),
     sourceNote([...rows.filter(r => !r.current).map(r => r.season), ...(titles.length ? ["titles"] : [])]),
+  ];
+}
+
+// ポストシーズン（出場したことがある選手だけ表示）
+function postseasonSection(name) {
+  const rows = postseasonRows(name);
+  if (!rows.length) return null;
+  const games = rows.reduce((a, r) => a + r.games, 0);
+  const points = Math.round(rows.reduce((a, r) => a + r.points, 0) * 10) / 10;
+  const stageLabel = { SF: "セミファイナル", F: "ファイナル" };
+  const asOf = state.data.postseasonAsOf;
+  return [
+    h("h3", { class: "section-title" }, "ポストシーズン"),
+    h("section", { class: "card" },
+      h("table", { class: "career" },
+        h("thead", {}, h("tr", {}, h("th", {}, "シーズン"), h("th", {}, "ステージ"), h("th", {}, "ポイント"), h("th", {}, "半荘"))),
+        h("tbody", {}, rows.map(r => h("tr", { class: r.current ? "is-current" : "" },
+          h("td", {}, h("div", { class: "career__season" }, r.season, r.current ? h("span", { class: "badge badge--next" }, "今季") : null)),
+          h("td", {}, stageLabel[r.stage]),
+          h("td", { class: "strong " + ptClass(r.points) }, pt(r.points)),
+          h("td", {}, int(r.games)))))),
+      h("div", { class: "post-total" }, h("span", {}, `ポストシーズン通算　${int(games)}半荘`), h("b", { class: ptClass(points) }, pt(points)))),
+    rows.some(r => r.current) && asOf ? note(`今季の分は${dayLabel(asOf)}終了時点（毎日3時にまとめて更新）。`) : null,
   ];
 }
 

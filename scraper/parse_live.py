@@ -19,12 +19,25 @@ def parse_standings(soup):
     return rows
 
 
+STAGE_TABS = {"Regular": "R", "SemiFinal": "SF", "Final": "F"}
+
+
+def stats_hrefs(soup):
+    """成績ページのタブのうち、公開済み（リンクになっている）ステージのリンク {"R": .., "SF": .., "F": ..}。
+
+    未開始のステージはリンクが HTML コメントに入っているため、BeautifulSoup には見えない。
+    """
+    links = {}
+    for a in soup.select(".p-stats__tab a.c-tab__clickable[href]"):
+        stage = STAGE_TABS.get(norm(a.select_one(".c-tab__label-main").text))
+        if stage:
+            links[stage] = a["href"]
+    return links
+
+
 def regular_stats_href(soup):
     """成績ページのタブから「レギュラーシーズン」のリンクを探す（ポストシーズン中も表示をレギュラーに固定するため）。"""
-    for a in soup.select(".p-stats__tab a.c-tab__clickable[href]"):
-        if norm(a.select_one(".c-tab__label-main").text) == "Regular":
-            return a["href"]
-    return None
+    return stats_hrefs(soup).get("R")
 
 
 STAT_KEYS = {

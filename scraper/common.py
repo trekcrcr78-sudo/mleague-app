@@ -43,7 +43,7 @@ def norm(s):
 
 
 # 略称・旧表記（Wikipedia の表などで使われるもの）
-TEAM_ALIASES = {"RAIDEN": "T006", "格闘倶楽部": "T003", "KONAMI": "T003"}
+TEAM_ALIASES = {"RAIDEN": "T006", "格闘倶楽部": "T003", "KONAMI": "T003", "パイレーツ": "T007"}
 
 
 def team_id(name):

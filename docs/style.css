@@ -347,3 +347,7 @@ button { font: inherit; color: inherit; }
 .asof__main { font-size: 13px; font-weight: 700; color: var(--ink-2); }
 .asof__main::before { content: "✓ "; color: var(--muted); }
 .asof__sub { font-size: 11.5px; color: var(--muted); }
+
+/* ---------- ポストシーズン ---------- */
+.post-total { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 12px; border-top: 1px solid var(--line); font-size: 13px; color: var(--ink-2); }
+.post-total b { font-size: 15px; font-variant-numeric: tabular-nums; }

@@ -202,3 +202,26 @@ export function titlesInSeason(season) {
 export function standingSeasons() {
   return Object.keys(state.history?.standings ?? {}).filter(s => s !== state.data.season).sort().reverse();
 }
+
+// ---------- ポストシーズン（セミファイナル・ファイナル）の個人成績 ----------
+// 出どころ: 今季=公式（毎日3時にまとめて更新）、過去=アプリが保存した公式の成績 → なければ Wikipedia
+export function postseasonRows(name) {
+  const rows = [];
+  const add = (season, stages, current) => {
+    for (const stage of ["F", "SF"]) {
+      const r = stages?.[stage]?.find(x => x.name === name);
+      if (r?.games) rows.push({ season, stage, current, team: r.team, points: r.points, games: r.games });
+    }
+  };
+  const cur = state.data.season;
+  add(cur, state.data.postseason, true);
+  const done = new Set([cur]);
+  for (const [season, stages] of Object.entries(state.history?.archivePost ?? {})) {
+    if (done.has(season)) continue;
+    add(season, stages, false); done.add(season);
+  }
+  for (const [season, stages] of Object.entries(state.history?.wiki?.postseason ?? {})) {
+    if (!done.has(season)) add(season, stages, false);
+  }
+  return rows.sort((a, b) => b.season.localeCompare(a.season) || (a.stage === "F" ? -1 : 1));
+}

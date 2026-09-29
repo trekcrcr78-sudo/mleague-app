@@ -77,7 +77,9 @@ export function awardValue(t) {
 export function asOfLine() {
   const { asOf, pending } = playersAsOfInfo();
   if (!asOf && !pending) return null;
+  // レギュラーシーズンが終わったら、以降の試合（ポストシーズン）は個人成績の一覧には入らないので「反映待ち」は出さない
+  const done = state.data.regularComplete;
   return h("div", { class: "asof" },
-    h("span", { class: "asof__main" }, asOf ? `${dayLabel(asOf)}終了時点の成績` : "開幕前の成績"),
-    pending ? h("span", { class: "asof__sub" }, `${dayLabel(pending)}の分は、その日の全試合が公式に反映されてからまとめて更新します`) : null);
+    h("span", { class: "asof__main" }, done ? "レギュラーシーズン最終成績" : asOf ? `${dayLabel(asOf)}終了時点の成績` : "開幕前の成績"),
+    pending && !done ? h("span", { class: "asof__sub" }, `${dayLabel(pending)}の分は、その日の全試合が公式に反映されてからまとめて更新します`) : null);
 }
