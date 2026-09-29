@@ -287,3 +287,19 @@ export function yakumanOf(name) {
   const rows = yakumanRows();
   return { won: rows.filter(r => r.winner === name), dealt: rows.filter(r => r.loser === name) };
 }
+
+// ---------- 推しチームのまとめ（日程タブの一番上） ----------
+// 今日の対局（なければ次の対局）と、直近の半荘の着順（古い→新しい）
+export function favSummary(team, recentCount = 5) {
+  const today = todayStr();
+  const matches = allMatches();
+  const mine = matches.filter(m => m.teams.includes(team));
+  const match = mine.find(m => m.date === today) ?? mine.find(m => m.date > today && !m.finished) ?? null;
+  const tablesThatDay = match ? matches.filter(m => m.date === match.date).length : 0;
+  const recent = [];
+  for (const m of mine) for (const g of [...m.games].sort((a, b) => a.no - b.no)) {
+    const r = g.results.find(x => teamOfPlayer(x.name) === team);
+    if (r) recent.push(r.rank);
+  }
+  return { match, isToday: match?.date === today, tablesThatDay, recent: recent.slice(-recentCount) };
+}

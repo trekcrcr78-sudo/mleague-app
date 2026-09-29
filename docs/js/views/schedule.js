@@ -1,8 +1,8 @@
 import { actions } from "../actions.js";
 import { sectionTitle, statusBadge, teamTag, note } from "../components.js";
 import { h, pressable } from "../dom.js";
-import { DOW, dayLabel, dowOf, mdLabel, todayStr } from "../format.js";
-import { allMatches, matchStatus, tableNo, teamShort } from "../model.js";
+import { DOW, dayLabel, dowOf, mdLabel, pt, ptClass, todayStr } from "../format.js";
+import { allMatches, borderDiffs, favSummary, matchStatus, tableNo, teamShort } from "../model.js";
 import { set, state } from "../store.js";
 
 
@@ -16,6 +16,34 @@ function matchRow(m, tablesThatDay) {
     h("div", { class: "match__teams" }, m.teams.map(t => teamTag(t, { markFav: true }))));
 }
 
+// 推しチームのまとめ（A案）: 順位・ポイント・ボーダー、今日（なければ次）の対局、直近5半荘の着順
+function favSummaryCard(team) {
+  const st = state.data.standings.find(r => r.team === team);
+  if (!st) return null;
+  const border = borderDiffs()[team];
+  const s = favSummary(team);
+  const num = (label, value, cls = "") => h("div", {}, h("span", {}, label), h("b", { class: cls }, value));
+  const signed = v => v == null ? "―" : v > 0 ? `+${v.toFixed(1)}` : pt(v);
+  let matchBox = null;
+  if (s.match) {
+    const m = s.match;
+    const others = m.teams.filter(t => t !== team).map(teamShort).join("・");
+    const table = s.tablesThatDay > 1 ? `${tableNo(m)}卓目` : "";
+    matchBox = h("div", { class: "favsum__match" },
+      h("div", { class: "favsum__label" },
+        h("span", {}, `${s.isToday ? "今日" : "次の対局"} ${dayLabel(m.date)} ${table}`.trim()), statusBadge(matchStatus(m))),
+      h("div", { class: "favsum__vs" }, `vs ${others}`));
+  }
+  return h("section", { class: "card favsum", ...pressable(() => actions.openTeam(team)) },
+    h("div", { class: "favsum__head" }, h("span", { class: "favsum__name" }, teamShort(team)), h("span", { class: "favsum__more" }, "チーム詳細 ›")),
+    h("div", { class: "favsum__nums" },
+      num("順位", `${st.rank}位`), num("ポイント", pt(st.points), ptClass(st.points)), num("ボーダー", signed(border), ptClass(border))),
+    matchBox,
+    s.recent.length ? h("div", { class: "favsum__form" },
+      h("div", { class: "favsum__label" }, h("span", {}, `直近${s.recent.length}半荘の着順（古い→新しい）`)),
+      h("div", { class: "favsum__dots" }, s.recent.map(r => h("span", { class: "favsum__dot" + (r === 1 ? " r1" : "") }, r)))) : null);
+}
+
 export function viewSchedule() {
   const matches = allMatches();
   const today = todayStr();
@@ -27,6 +55,7 @@ export function viewSchedule() {
     if (state.fav && m.teams.includes(state.fav)) favDays.add(m.date);
   }
   const row = m => matchRow(m, tablesOn.get(m.date));
+  if (state.fav && state.showFavSummary) out.push(favSummaryCard(state.fav));
 
   // 今日（なければ次の開催日）
   const nextDate = matches.find(m => m.date >= today)?.date;

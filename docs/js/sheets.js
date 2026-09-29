@@ -5,7 +5,7 @@ import { asOfLine, awardValue, gameBlock, note, playerLink, resultCard, sourceNo
 import { $, h, pressable, segmented } from "./dom.js";
 import { dayLabel, dec2, int, pct, pt, ptClass, round1 } from "./format.js";
 import { aggregate, allMatches, currentPlayer, isActive, playerLog, postseasonRows, seasonRows, STAGE_NAME, teamName, teamOfPlayer, teamShort, titlesOf, yakumanOf } from "./model.js";
-import { setFav, state } from "./store.js";
+import { set, setFav, state } from "./store.js";
 
 let current = null; // 開いているシートの描画関数（データ更新時に描き直す）
 
@@ -184,11 +184,15 @@ function openFavPicker() {
   const pick = team => { setFav(team); closeSheet(); };
   show(() => [
     h("div", { class: "hero" }, h("div", {}, h("h2", { id: "sheet-title" }, "推しチーム"),
-      h("div", { class: "prow__meta" }, "日程・順位で色付けして表示します"))),
+      h("div", { class: "prow__meta" }, "日程・チーム順位・結果で色付けして表示します"))),
     h("div", { class: "fav-grid", role: "radiogroup", "aria-label": "推しチーム" },
       state.data.standings.map(r => h("button", { class: "fav-opt", type: "button", role: "radio", "aria-checked": String(state.fav === r.team), onclick: () => pick(r.team) },
         h("span", { class: "fav-opt__radio", "aria-hidden": "true" }), teamShort(r.team)))),
     h("button", { class: "fav-opt fav-opt--none", type: "button", role: "radio", "aria-checked": String(!state.fav), onclick: () => pick(null) }, "設定しない"),
+    h("label", { class: "switch-row" },
+      h("span", {}, h("b", {}, "日程の一番上にまとめを表示"), h("small", {}, "順位・ボーダー・今日の対局・直近の着順")),
+      h("input", { type: "checkbox", role: "switch", checked: state.showFavSummary ? true : null,
+        onchange: e => { set({ showFavSummary: e.target.checked }); redrawSheet(); } })),
   ]);
 }
 

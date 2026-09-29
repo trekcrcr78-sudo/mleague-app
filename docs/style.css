@@ -389,3 +389,30 @@ button { font: inherit; color: inherit; }
 .yk__hand { margin-top: 3px; font-size: 11.5px; color: var(--muted); }
 .yk-list li { grid-template-columns: 78px 1fr auto; }
 .yk-stage { display: block; font-size: 10.5px; font-weight: 500; color: var(--muted); }
+
+/* ---------- 推しチームのまとめ（日程の一番上） ---------- */
+.favsum { background: var(--accent-soft); border: 2px solid var(--accent); padding: 11px 12px; margin-bottom: 4px; cursor: pointer; }
+.favsum__head { display: flex; justify-content: space-between; align-items: baseline; }
+.favsum__name { font-size: 17px; font-weight: 800; color: var(--accent); }
+.favsum__more { font-size: 11.5px; color: var(--muted); }
+.favsum__nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px; }
+.favsum__nums div { background: var(--surface); border-radius: 9px; padding: 6px 8px; }
+.favsum__nums span { display: block; font-size: 10.5px; color: var(--muted); }
+.favsum__nums b { font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.favsum__match { margin-top: 8px; background: var(--surface); border-radius: 9px; padding: 7px 9px; }
+.favsum__label { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--muted); }
+.favsum__vs { margin-top: 2px; font-size: 13.5px; font-weight: 650; color: var(--ink-2); }
+.favsum__form { margin-top: 8px; }
+.favsum__dots { display: flex; gap: 5px; margin-top: 4px; }
+.favsum__dot { width: 28px; height: 28px; border-radius: 7px; background: var(--surface); display: grid; place-items: center; font-weight: 800; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.favsum__dot.r1 { color: var(--gold); }
+
+/* ★の画面の切り替え */
+.switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); cursor: pointer; }
+.switch-row b { display: block; font-size: 14px; }
+.switch-row small { display: block; font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+.switch-row input { appearance: none; -webkit-appearance: none; flex: none; width: 46px; height: 28px; border-radius: 999px; background: var(--axis); position: relative; cursor: pointer; transition: background 0.15s; margin: 0; }
+.switch-row input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: transform 0.15s; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); }
+.switch-row input:checked { background: var(--accent); }
+.switch-row input:checked::after { transform: translateX(18px); }
+.switch-row input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
