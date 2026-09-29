@@ -230,27 +230,47 @@ export function postseasonRows(name) {
 export function tableNo(m) { return Number(m.id.split("-").pop()); }
 
 // ---------- チーム順位にどの試合まで反映されているか ----------
-// 公式の順位表の各チームの試合数と、試合結果（前日まで）を突き合わせ、今日の各卓が第何回戦まで入っているかを求める。
-// 照合できないとき（公式側の一時的なずれなど）は null（推測で表示しない）
+// 公式の順位表の「試合数」は半荘が始まった時点で増え、ポイントは終わってから変わる。
+// そこで試合数で「何回戦まで始まったか」、ポイントの変化で「終わったか」を判断する。
+// 照合できないとき（公式側の一時的なずれ、試合結果の反映待ちなど）は null（推測で表示しない）
 export function standingsProgress() {
   const today = todayStr();
   const matches = allMatches();
   const dates = [...new Set(matches.map(m => m.date))].filter(d => d <= today).sort();
   const day = dates.at(-1);
   if (!day) return null;
-  const prior = {};
-  for (const m of matches) if (m.date < day) for (const t of m.teams) prior[t] = (prior[t] || 0) + m.games.length;
-  const games = Object.fromEntries(state.data.standings.map(r => [r.team, r.games]));
+  // 前日までの試合数とポイント（試合結果から集計）
+  const prior = {}, priorPts = {};
+  const addPts = (bag, g) => { for (const r of g.results) { const t = teamOfPlayer(r.name); if (t) bag[t] = (bag[t] || 0) + r.point; } };
+  for (const m of matches) if (m.date < day) {
+    for (const t of m.teams) prior[t] = (prior[t] || 0) + m.games.length;
+    for (const g of m.games) addPts(priorPts, g);
+  }
+  const std = Object.fromEntries(state.data.standings.map(r => [r.team, r]));
+  const same = (a, b) => Math.abs((a ?? 0) - (b ?? 0)) < 0.05;
   const onDay = matches.filter(m => m.date === day).sort((a, b) => tableNo(a) - tableNo(b));
-  const playing = new Set(onDay.flatMap(m => m.teams));
-  // 今日試合のないチームは前日までと同じ試合数のはず
-  if (Object.keys(games).some(t => !playing.has(t) && games[t] !== (prior[t] || 0))) return null;
+  const playingToday = new Set(onDay.flatMap(m => m.teams));
+  // 今日試合のないチームは、試合数もポイントも前日までと同じはず（違えば照合できないので表示しない）
+  for (const [t, r] of Object.entries(std)) {
+    if (!playingToday.has(t) && (r.games !== (prior[t] || 0) || !same(r.points, priorPts[t]))) return null;
+  }
   const tables = [];
   for (const m of onDay) {
-    const counts = new Set(m.teams.map(t => (games[t] ?? 0) - (prior[t] || 0)));
-    const n = [...counts][0];
-    if (counts.size !== 1 || n < 0 || n > 2) return null;
-    tables.push({ no: tableNo(m), done: n });
+    const counts = new Set(m.teams.map(t => (std[t]?.games ?? 0) - (prior[t] || 0)));
+    const started = [...counts][0];
+    if (counts.size !== 1 || started < 0 || started > 2) return null;
+    // 第1回戦の結果が試合結果ページに出ていれば、その後のポイントも分かる
+    const after1 = { ...priorPts };
+    const g1 = m.games.find(g => g.no === 1);
+    if (g1) addPts(after1, g1);
+    const changedFrom = base => m.teams.some(t => !same(std[t]?.points, base[t]));
+    let done;
+    if (started === 0) done = 0;
+    else if (started === 1) done = g1 || changedFrom(priorPts) ? 1 : 0;
+    else if (m.finished || m.games.length >= 2) done = 2;
+    else if (g1) done = changedFrom(after1) ? 2 : 1;   // 第2回戦が始まっている＝第1回戦は終了
+    else return null;                                   // 第1回戦の結果待ちで第2回戦の終了が判断できない
+    tables.push({ no: tableNo(m), started, done, playing: started > done });
   }
   return { day, prevDay: dates.at(-2) ?? null, tables, single: tables.length === 1 };
 }

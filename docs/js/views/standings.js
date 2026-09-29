@@ -68,24 +68,28 @@ function current() {
   ];
 }
 
-// 順位表に今日のどの試合まで入っているか（例: 9/29（火）1卓目 第2回戦・2卓目 第1回戦 終了時点）
+// 順位表に今日のどの試合まで入っているか
+// 例: 「9/29（火） 1卓目・2卓目とも第1回戦 対局中」「9/29（火） 1卓目 第1回戦 終了・2卓目 第1回戦 対局中」
 function progressLine() {
   const p = standingsProgress();
   if (!p) return null;
-  const label = t => (p.single ? "" : `${t.no}卓目 `) + `第${t.done}回戦`;
-  const all = p.tables.every(t => t.done === 2);
-  const none = p.tables.every(t => t.done === 0);
-  if (all) return h("div", { class: "asof" }, h("span", { class: "asof__main" }, `${dayLabel(p.day)}の全試合を反映済み`));
-  if (none) {
-    return h("div", { class: "asof asof--pending" },
-      h("span", { class: "asof__main" }, p.prevDay ? `${dayLabel(p.prevDay)}終了時点` : "開幕前"),
-      h("span", { class: "asof__sub" }, `${dayLabel(p.day)}の試合はまだ反映されていません`));
+  if (p.tables.every(t => t.done === 2)) {
+    return h("div", { class: "asof" }, h("span", { class: "asof__main" }, `${dayLabel(p.day)}の全試合を反映済み`));
   }
-  const done = p.tables.filter(t => t.done > 0).map(label).join("・");
-  const waiting = p.tables.filter(t => t.done === 0).map(t => `${t.no}卓目`);
+  const status = t => t.playing ? `第${t.started}回戦 対局中` : t.done > 0 ? `第${t.done}回戦 終了` : "開始前";
+  const statuses = p.tables.map(status);
+  let main;
+  if (p.single) main = statuses[0];
+  else if (new Set(statuses).size === 1) main = `${p.tables.map(t => `${t.no}卓目`).join("・")}とも${statuses[0]}`;
+  else main = p.tables.map((t, i) => `${t.no}卓目 ${statuses[i]}`).join("・");
+  const anyDone = p.tables.some(t => t.done > 0);
+  const anyStarted = p.tables.some(t => t.started > 0);
+  const sub = anyDone
+    ? "終わった半荘までのポイントです。次の取り込みで更新されます（数分〜30分程度）"
+    : p.prevDay ? `順位表は${dayLabel(p.prevDay)}終了時点のポイントです` : "開幕前のポイントです";
   return h("div", { class: "asof asof--pending" },
-    h("span", { class: "asof__main" }, `${dayLabel(p.day)} ${done} 終了時点` + (waiting.length ? `（${waiting.join("・")}はまだ）` : "")),
-    h("span", { class: "asof__sub" }, "次の取り込みで更新されます（数分〜30分程度）"));
+    h("span", { class: "asof__main" }, anyStarted ? `${dayLabel(p.day)} ${main}` : `${dayLabel(p.day)}の試合はまだ始まっていません`),
+    h("span", { class: "asof__sub" }, sub));
 }
 
 // 1ステージの最終順位。cutAfter: 次のステージに進んだチーム数（その下に破線）
