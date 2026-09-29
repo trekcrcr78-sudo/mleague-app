@@ -65,6 +65,84 @@ def players_snapshot(fresh, by_month, old):
     return fresh, None
 
 
+def _same(a, b):
+    return abs((a or 0) - (b or 0)) < 0.05
+
+
+def _table_no(m):
+    return int(m["id"].rsplit("-", 1)[1])
+
+
+def standings_progress(now, by_month, standings, team_of, old):
+    """順位表に今日（直近の開催日）のどの半荘まで入っているかを卓ごとに数える。
+
+    公式の順位表は、半荘が終わるとその卓の4チームのポイントがまとめて動く（試合数は始まった時点で増える）。
+    取り込みのたびに前回からポイントが動いたかを見て、動いた回数＝反映済みの半荘数とする。
+    試合結果ページに結果が載っていれば、そこから計算したポイントと照らし合わせて確定させる。
+    照合がつかないとき（公式側の一時的なずれなど）は、最後に確認できた数のまま checking=True にする。
+    """
+    matches = [m for ms in by_month.values() for m in ms]
+    ref = (now - timedelta(hours=6)).date().isoformat()  # 深夜（〜6時）は前日扱い
+    dates = sorted({m["date"] for m in matches if m["date"] <= ref})
+    if not dates:
+        return None
+    day = dates[-1]
+    std = {r["team"]: r for r in standings}
+    op = old.get("standingsProgress") or {}
+    prev_tables = {}
+    if op.get("day") == day:
+        base, prev_tables = op["base"], {t["no"]: t for t in op["tables"]}
+    elif op and old.get("standings"):
+        # 新しい開催日: 前回の取り込み（前の開催日の試合が終わった後）の順位表が起点
+        base = {r["team"]: {"points": r["points"], "games": r["games"]} for r in old["standings"]}
+    else:
+        # 記録がまだ無いとき: 前の開催日までの試合結果から起点を作る
+        base = {t: {"points": 0.0, "games": 0} for t in std}
+        for m in matches:
+            if m["date"] < day:
+                for t in m["teams"]:
+                    base.setdefault(t, {"points": 0.0, "games": 0})["games"] += len(m["games"])
+                for g in m["games"]:
+                    for r in g["results"]:
+                        if team_of.get(r["name"]) in base:
+                            base[team_of[r["name"]]]["points"] += r["point"]
+        base = {t: {"points": round(v["points"], 1), "games": v["games"]} for t, v in base.items()}
+
+    on_day = sorted((m for m in matches if m["date"] == day), key=_table_no)
+    playing = {t for m in on_day for t in m["teams"]}
+    # 今日試合のないチームは起点から変わらないはず（変わっていれば公式側がずれている）
+    global_check = any(t not in playing and (r["games"] != base.get(t, {}).get("games") or not _same(r["points"], base.get(t, {}).get("points")))
+                       for t, r in std.items())
+    tables = []
+    for m in on_day:
+        prev = prev_tables.get(_table_no(m))
+        cur = {t: std[t]["points"] if t in std else None for t in m["teams"]}
+        started = {(std[t]["games"] if t in std else 0) - base.get(t, {}).get("games", 0) for t in m["teams"]}
+        started = started.pop() if len(started) == 1 else None
+        checking = global_check or started is None or not 0 <= started <= 2
+        last = prev["last"] if prev else {t: base.get(t, {}).get("points") for t in m["teams"]}
+        reflected = prev["reflected"] if prev else 0
+        diffs = [(cur[t] or 0) - (last.get(t) or 0) for t in m["teams"]]
+        if any(abs(d) >= 0.05 for d in diffs):
+            if abs(sum(diffs)) < 0.25:   # 1半荘分の動き（4チームの増減の合計は0）
+                reflected, last = reflected + 1, cur
+            else:                        # 4チームの一部だけ更新された途中の状態
+                checking = True
+        # 試合結果ページで確かめる（遅れて載るので、載っていればそれで確定）
+        if m["games"]:
+            expected = {t: base.get(t, {}).get("points", 0) for t in m["teams"]}
+            for g in m["games"]:
+                for r in g["results"]:
+                    if team_of.get(r["name"]) in expected:
+                        expected[team_of[r["name"]]] += r["point"]
+            if all(_same(cur[t], expected[t]) for t in m["teams"]):
+                reflected, last = len(m["games"]), cur
+        if not checking:
+            reflected = min(reflected, started)
+        tables.append({"no": _table_no(m), "reflected": min(reflected, 2), "checking": checking, "last": last})
+    return {"day": day, "prevDay": dates[-2] if len(dates) > 1 else None, "base": base, "tables": tables}
+
+
 def scrape_current(now, full, old):
     top = fetch("/")
     stats_page = fetch("/stats/")
@@ -100,12 +178,15 @@ def scrape_current(now, full, old):
     # レギュラーシーズンが全日程終わったか（選手の試合数の合計 = 各チームの予定試合数の合計）
     regular_total = sum(r["totalGames"] for r in standings)
     regular_complete = bool(regular_total) and sum(int(p.get("games") or 0) for p in players) >= regular_total
+    team_of = {p["name"]: p["team"] for p in players if p.get("team")}
+    progress = standings_progress(now, by_month, standings, team_of, old)
     return {
         "updatedAt": now.isoformat(timespec="seconds"),
         "source": BASE,
         "season": season_label(months[0][0] if months else now.year),
         "teams": {tid: {"name": full_, "short": short} for tid, (full_, short, _) in TEAMS.items()},
         "standings": standings,
+        "standingsProgress": progress,
         "players": players,
         "playersAsOf": as_of,
         "regularComplete": regular_complete,

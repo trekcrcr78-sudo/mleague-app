@@ -68,27 +68,25 @@ function current() {
   ];
 }
 
-// 順位表に今日のどの試合まで入っているか
-// 例: 「9/29（火） 1卓目・2卓目とも第1回戦 対局中」「9/29（火） 1卓目 第1回戦 終了・2卓目 第1回戦 対局中」
+// 順位表に今日のどの半荘まで入っているか
+// 例: 「9/29（火） 1卓目 第1回戦まで反映・2卓目 未反映」「✓ 9/29（火）の全試合を反映済み」
 function progressLine() {
   const p = standingsProgress();
   if (!p) return null;
-  if (p.tables.every(t => t.done === 2)) {
+  if (p.tables.every(t => t.reflected === 2 && !t.checking)) {
     return h("div", { class: "asof" }, h("span", { class: "asof__main" }, `${dayLabel(p.day)}の全試合を反映済み`));
   }
-  const status = t => t.playing ? `第${t.started}回戦 対局中` : t.done > 0 ? `第${t.done}回戦 終了` : "開始前";
+  const status = t => (t.reflected > 0 ? `第${t.reflected}回戦まで反映` : "未反映") + (t.checking ? "（確認中）" : "");
   const statuses = p.tables.map(status);
   let main;
   if (p.single) main = statuses[0];
   else if (new Set(statuses).size === 1) main = `${p.tables.map(t => `${t.no}卓目`).join("・")}とも${statuses[0]}`;
   else main = p.tables.map((t, i) => `${t.no}卓目 ${statuses[i]}`).join("・");
-  const anyDone = p.tables.some(t => t.done > 0);
-  const anyStarted = p.tables.some(t => t.started > 0);
-  const sub = anyDone
-    ? "終わった半荘までのポイントです。次の取り込みで更新されます（数分〜30分程度）"
-    : p.prevDay ? `順位表は${dayLabel(p.prevDay)}終了時点のポイントです` : "開幕前のポイントです";
+  const sub = p.tables.some(t => t.reflected > 0)
+    ? "半荘が終わると数分〜30分ほどで順位とポイントが更新されます"
+    : p.prevDay ? `${dayLabel(p.prevDay)}終了時点の順位です` : "開幕前の順位です";
   return h("div", { class: "asof asof--pending" },
-    h("span", { class: "asof__main" }, anyStarted ? `${dayLabel(p.day)} ${main}` : `${dayLabel(p.day)}の試合はまだ始まっていません`),
+    h("span", { class: "asof__main" }, `${dayLabel(p.day)} ${main}`),
     h("span", { class: "asof__sub" }, sub));
 }
 
