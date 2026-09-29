@@ -4,8 +4,8 @@ import { actions } from "../actions.js";
 import { drawProgression } from "../chart.js";
 import { note, sectionTitle, sourceNote } from "../components.js";
 import { chipRow, h, pressable } from "../dom.js";
-import { pt, ptClass } from "../format.js";
-import { standingSeasons, teamShort } from "../model.js";
+import { dayLabel, pt, ptClass } from "../format.js";
+import { standingSeasons, standingsProgress, teamShort } from "../model.js";
 import { set, state } from "../store.js";
 
 const STAGES = [["F", "ファイナル"], ["SF", "セミファイナル"], ["R", "レギュラーシーズン"]];
@@ -38,12 +38,33 @@ function current() {
       h("td", { class: "sub" }, `${r.games}/${r.totalGames}`)))));
   return [
     sectionTitle("チーム順位（レギュラーシーズン）"),
+    progressLine(),
     h("section", { class: "card" }, table),
     note("破線より上の6チームがセミファイナル進出圏。チームをタップすると所属選手の成績と過去シーズンの結果が見られます。"),
     sectionTitle("ポイント推移"),
     h("section", { class: "card chart-card" }, h("div", { id: "chart" }), h("div", { class: "legend", id: "legend" })),
     note("チーム名をタップすると最大3チームまで色付きで比較できます。グラフをなぞると各日の全チームのポイントが見られます。"),
   ];
+}
+
+// 順位表に今日のどの試合まで入っているか（例: 9/29（火）1卓目 第2回戦・2卓目 第1回戦 終了時点）
+function progressLine() {
+  const p = standingsProgress();
+  if (!p) return null;
+  const label = t => (p.single ? "" : `${t.no}卓目 `) + `第${t.done}回戦`;
+  const all = p.tables.every(t => t.done === 2);
+  const none = p.tables.every(t => t.done === 0);
+  if (all) return h("div", { class: "asof" }, h("span", { class: "asof__main" }, `${dayLabel(p.day)}の全試合を反映済み`));
+  if (none) {
+    return h("div", { class: "asof asof--pending" },
+      h("span", { class: "asof__main" }, p.prevDay ? `${dayLabel(p.prevDay)}終了時点` : "開幕前"),
+      h("span", { class: "asof__sub" }, `${dayLabel(p.day)}の試合はまだ反映されていません`));
+  }
+  const done = p.tables.filter(t => t.done > 0).map(label).join("・");
+  const waiting = p.tables.filter(t => t.done === 0).map(t => `${t.no}卓目`);
+  return h("div", { class: "asof asof--pending" },
+    h("span", { class: "asof__main" }, `${dayLabel(p.day)} ${done} 終了時点` + (waiting.length ? `（${waiting.join("・")}はまだ）` : "")),
+    h("span", { class: "asof__sub" }, "次の取り込みで更新されます（数分〜30分程度）"));
 }
 
 // 1ステージの最終順位。cutAfter: 次のステージに進んだチーム数（その下に破線）

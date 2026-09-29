@@ -2,11 +2,9 @@ import { actions } from "../actions.js";
 import { sectionTitle, statusBadge, teamTag, note } from "../components.js";
 import { h, pressable } from "../dom.js";
 import { DOW, dayLabel, dowOf, mdLabel, todayStr } from "../format.js";
-import { allMatches, matchStatus, teamShort } from "../model.js";
+import { allMatches, matchStatus, tableNo, teamShort } from "../model.js";
 import { set, state } from "../store.js";
 
-// 何卓目か（試合IDの末尾 "2026-09-21-2" の 2）。推しチームで絞り込んでも番号は変わらない
-function tableNo(m) { return Number(m.id.split("-").pop()); }
 
 function matchRow(m, tablesThatDay) {
   const clickable = m.games.length > 0;

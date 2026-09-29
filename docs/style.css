@@ -346,6 +346,7 @@ button { font: inherit; color: inherit; }
 .asof { display: flex; flex-direction: column; gap: 2px; margin: 0 2px 10px; }
 .asof__main { font-size: 13px; font-weight: 700; color: var(--ink-2); }
 .asof__main::before { content: "✓ "; color: var(--muted); }
+.asof--pending .asof__main::before { content: none; }
 .asof__sub { font-size: 11.5px; color: var(--muted); }
 
 /* ---------- ポストシーズン ---------- */

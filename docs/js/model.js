@@ -225,3 +225,32 @@ export function postseasonRows(name) {
   }
   return rows.sort((a, b) => b.season.localeCompare(a.season) || (a.stage === "F" ? -1 : 1));
 }
+
+// 何卓目か（試合IDの末尾 "2026-09-21-2" の 2）。推しチームで絞り込んでも番号は変わらない
+export function tableNo(m) { return Number(m.id.split("-").pop()); }
+
+// ---------- チーム順位にどの試合まで反映されているか ----------
+// 公式の順位表の各チームの試合数と、試合結果（前日まで）を突き合わせ、今日の各卓が第何回戦まで入っているかを求める。
+// 照合できないとき（公式側の一時的なずれなど）は null（推測で表示しない）
+export function standingsProgress() {
+  const today = todayStr();
+  const matches = allMatches();
+  const dates = [...new Set(matches.map(m => m.date))].filter(d => d <= today).sort();
+  const day = dates.at(-1);
+  if (!day) return null;
+  const prior = {};
+  for (const m of matches) if (m.date < day) for (const t of m.teams) prior[t] = (prior[t] || 0) + m.games.length;
+  const games = Object.fromEntries(state.data.standings.map(r => [r.team, r.games]));
+  const onDay = matches.filter(m => m.date === day).sort((a, b) => tableNo(a) - tableNo(b));
+  const playing = new Set(onDay.flatMap(m => m.teams));
+  // 今日試合のないチームは前日までと同じ試合数のはず
+  if (Object.keys(games).some(t => !playing.has(t) && games[t] !== (prior[t] || 0))) return null;
+  const tables = [];
+  for (const m of onDay) {
+    const counts = new Set(m.teams.map(t => (games[t] ?? 0) - (prior[t] || 0)));
+    const n = [...counts][0];
+    if (counts.size !== 1 || n < 0 || n > 2) return null;
+    tables.push({ no: tableNo(m), done: n });
+  }
+  return { day, prevDay: dates.at(-2) ?? null, tables, single: tables.length === 1 };
+}
