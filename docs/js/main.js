@@ -84,11 +84,11 @@ function isMatchNight() {
   return state.data && jstNow().getUTCHours() >= 18 && allMatches().some(m => m.date === today && !m.finished);
 }
 // 見出しの下の1行。「○分前」は最新かどうかの目安にならないので出さず（各画面の「○○終了時点」で判断する）、
-// 試合がある夜の自動更新の案内だけ出す。読み込めなかったときは「オフライン表示中」（次に読み込めるまで出し続ける）
+// 速報と紛らわしいので自動更新の案内も出さない。読み込めなかったときだけ「オフライン表示中」（次に読み込めるまで出し続ける）
 function renderUpdated() {
   if (offline) return void ($("#updated").textContent = state.data ? "オフライン表示中（前回のデータ）" : "データを読み込めませんでした");
   if (!state.data) return;
-  $("#updated").replaceChildren(isMatchNight() ? h("span", { class: "live" }, "● 試合中は自動更新") : "");
+  $("#updated").textContent = "";
 }
 let timer;
 function scheduleRefresh() {
