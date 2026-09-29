@@ -88,6 +88,7 @@ button { font: inherit; color: inherit; }
 .topbar__title { margin: 0; font-size: 22px; font-weight: 750; letter-spacing: 0.01em; }
 .topbar__updated { grid-column: 1 / -1; margin: 0; font-size: 12px; color: var(--muted); }
 .topbar__updated .live { color: var(--live); font-weight: 700; }
+.topbar__updated:empty { display: none; }
 .topbar__actions { display: flex; gap: 8px; }
 .topbar__btn {
   width: 36px; height: 36px; border-radius: 50%; border: 0; background: var(--surface-2);

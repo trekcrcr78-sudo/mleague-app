@@ -56,7 +56,7 @@ subscribe(patch => {
 });
 
 // ---------- 読み込み ----------
-let loading = false, historyLoadedAt = 0;
+let loading = false, historyLoadedAt = 0, offline = false;
 async function load({ manual = false } = {}) {
   if (loading) return;
   loading = true;
@@ -68,9 +68,11 @@ async function load({ manual = false } = {}) {
     const patch = {};
     if (!state.data || data.updatedAt !== state.data.updatedAt || manual) patch.data = data;
     if (history && history.updatedAt !== state.history?.updatedAt) patch.history = history;
+    offline = false;
     if (Object.keys(patch).length) set(patch); else renderUpdated();
   } catch {
-    $("#updated").textContent = state.data ? "オフライン表示中（前回のデータ）" : "データを読み込めませんでした";
+    offline = true;
+    renderUpdated();
   } finally {
     loading = false;
     $("#refresh").classList.remove("is-spinning");
@@ -81,12 +83,12 @@ function isMatchNight() {
   const today = todayStr();
   return state.data && jstNow().getUTCHours() >= 18 && allMatches().some(m => m.date === today && !m.finished);
 }
+// 見出しの下の1行。「○分前」は最新かどうかの目安にならないので出さず（各画面の「○○終了時点」で判断する）、
+// 試合がある夜の自動更新の案内だけ出す。読み込めなかったときは「オフライン表示中」（次に読み込めるまで出し続ける）
 function renderUpdated() {
+  if (offline) return void ($("#updated").textContent = state.data ? "オフライン表示中（前回のデータ）" : "データを読み込めませんでした");
   if (!state.data) return;
-  const u = new Date(state.data.updatedAt);
-  const mins = Math.round((Date.now() - u) / 60000);
-  const ago = mins < 1 ? "たった今" : mins < 60 ? `${mins}分前` : `${u.getMonth() + 1}/${u.getDate()} ${String(u.getHours()).padStart(2, "0")}:${String(u.getMinutes()).padStart(2, "0")}`;
-  $("#updated").replaceChildren(`データ更新: ${ago}`, isMatchNight() ? ["　", h("span", { class: "live" }, "● 試合中は自動更新")] : []);
+  $("#updated").replaceChildren(isMatchNight() ? h("span", { class: "live" }, "● 試合中は自動更新") : "");
 }
 let timer;
 function scheduleRefresh() {
