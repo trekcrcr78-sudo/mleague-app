@@ -1,7 +1,8 @@
 // 結果タブ: 試合結果と役満の一覧
-import { note, resultCard, sourceNote, yakumanCard } from "../components.js";
+import { gameBlock, note, sourceNote, statusBadge, yakumanCard } from "../components.js";
 import { chipRow, h } from "../dom.js";
-import { allMatches, teamShort, yakumanRows } from "../model.js";
+import { dayLabel } from "../format.js";
+import { allMatches, matchStatus, tableNo, teamShort, yakumanRows } from "../model.js";
 import { set, state } from "../store.js";
 
 export function viewResults() {
@@ -12,9 +13,30 @@ export function viewResults() {
     chipRow([["all", "全チーム"], ...state.data.standings.map(r => [r.team, teamShort(r.team)])], team, v => set({ resultTeam: v })),
   ];
   if (view === "yakuman") return [controls, yakumanView(team)];
-  let list = allMatches().filter(m => m.games.length).reverse();
+  const matches = allMatches();
+  const tablesOn = new Map();
+  for (const m of matches) tablesOn.set(m.date, (tablesOn.get(m.date) || 0) + 1);
+  let list = matches.filter(m => m.games.length);
   if (team !== "all") list = list.filter(m => m.teams.includes(team));
-  return [controls, list.length ? list.map(m => resultCard(m, { markFav: true })) : h("p", { class: "empty" }, "まだ結果がありません")];
+  // 日付ごとにまとめる（日付は新しい順、同じ日の中は1卓目→2卓目）
+  const byDate = new Map();
+  for (const m of list) { if (!byDate.has(m.date)) byDate.set(m.date, []); byDate.get(m.date).push(m); }
+  const days = [...byDate].reverse().map(([d, ms]) => dayCard(d, ms.sort((a, b) => tableNo(a) - tableNo(b)), tablesOn.get(d)));
+  return [controls, days.length ? days : h("p", { class: "empty" }, "まだ結果がありません")];
+}
+
+// 1日分の結果。卓ごとに枠で分け、推しチームの卓は緑の枠にする
+function dayCard(date, ms, tablesThatDay) {
+  return h("section", { class: "card rday" },
+    h("div", { class: "rday__date" }, dayLabel(date)),
+    ms.map(m => {
+      const fav = state.fav && m.teams.includes(state.fav);
+      return h("div", { class: "rtable" + (fav ? " is-fav" : "") },
+        h("div", { class: "rtable__head" },
+          tablesThatDay > 1 ? h("span", { class: "rtable__no" }, `${tableNo(m)}卓目`) : null,
+          h("span", { class: "rtable__status" }, statusBadge(matchStatus(m), m))),
+        h("div", { class: "games" }, m.games.map(g => gameBlock(g, { markFav: fav }))));
+    }));
 }
 
 function yakumanView(team) {
