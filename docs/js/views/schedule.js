@@ -12,7 +12,7 @@ function matchRow(m, tablesThatDay) {
   return h("div", { class: "match" + (clickable ? " is-clickable" : "") + (fav ? " is-fav" : ""), ...(clickable ? pressable(() => actions.openMatch(m)) : {}) },
     h("div", { class: "match__head" },
       tablesThatDay > 1 ? h("span", { class: "match__table" }, `${tableNo(m)}卓目`) : null,
-      h("span", { class: "match__status" }, statusBadge(matchStatus(m)))),
+      h("span", { class: "match__status" }, statusBadge(matchStatus(m), m))),
     h("div", { class: "match__teams" }, m.teams.map(t => teamTag(t, { markFav: true }))));
 }
 
@@ -32,7 +32,7 @@ function favSummaryCard(team) {
     const table = s.tablesThatDay > 1 ? `${tableNo(m)}卓目` : "";
     matchBox = h("div", { class: "favsum__match" },
       h("div", { class: "favsum__label" },
-        h("span", {}, `${s.isToday ? "今日" : "次の対局"} ${dayLabel(m.date)} ${table}`.trim()), statusBadge(matchStatus(m))),
+        h("span", {}, `${s.isToday ? "今日" : "次の対局"} ${dayLabel(m.date)} ${table}`.trim()), statusBadge(matchStatus(m), m)),
       h("div", { class: "favsum__vs" }, `vs ${others}`));
   }
   return h("section", { class: "card favsum", ...pressable(() => actions.openTeam(team)) },

@@ -3,7 +3,7 @@
 import { actions } from "./actions.js";
 import { h, pressable } from "./dom.js";
 import { dayLabel, int, pct, pt, ptClass } from "./format.js";
-import { AWARD_SHORT, matchStatus, playersAsOfInfo, STAGE_NAME, teamOfPlayer, teamShort, wikiSource } from "./model.js";
+import { AWARD_SHORT, livePhase, matchStatus, playersAsOfInfo, STAGE_NAME, teamOfPlayer, teamShort, wikiSource } from "./model.js";
 import { state } from "./store.js";
 
 // チーム名の札。推しチームの色付けは日程だけで使う（markFav: true）
@@ -11,7 +11,15 @@ export function teamTag(id, { markFav = false } = {}) {
   return h("span", { class: "team-tag" + (markFav && id === state.fav ? " is-fav" : "") }, teamShort(id));
 }
 
-export function statusBadge(st) {
+// m を渡すと、対局中の卓は「第1回戦 対局中」「第1回戦 終了」のように何回戦かも出す
+export function statusBadge(st, m) {
+  const ph = st === "live" && m ? livePhase(m) : null;
+  if (ph) {
+    if (ph.started === 0) st = "today";
+    else if (ph.started > ph.reflected) return h("span", { class: "badge badge--live" }, `第${ph.started}回戦 対局中`);
+    else if (ph.reflected < 2) return h("span", { class: "badge badge--done" }, `第${ph.reflected}回戦 終了`);
+    else st = "done";
+  }
   if (st === "live") return h("span", { class: "badge badge--live" }, "対局中");
   if (st === "today") return h("span", { class: "badge badge--next" }, "本日");
   if (st === "done") return h("span", { class: "badge badge--done" }, "終了");
@@ -38,7 +46,7 @@ export function gameBlock(g, { markFav = false } = {}) {
 export function resultCard(m, { markFav = false } = {}) {
   const fav = markFav && state.fav && m.teams.includes(state.fav);
   return h("section", { class: "card result" + (fav ? " is-fav" : "") },
-    h("div", { class: "result__head" }, h("span", { class: "result__date" }, dayLabel(m.date)), statusBadge(matchStatus(m))),
+    h("div", { class: "result__head" }, h("span", { class: "result__date" }, dayLabel(m.date)), statusBadge(matchStatus(m), m)),
     h("div", { class: "games" }, m.games.map(g => gameBlock(g, { markFav: fav }))));
 }
 

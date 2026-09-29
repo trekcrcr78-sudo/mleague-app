@@ -139,7 +139,8 @@ def standings_progress(now, by_month, standings, team_of, old):
                 reflected, last = len(m["games"]), cur
         if not checking:
             reflected = min(reflected, started)
-        tables.append({"no": _table_no(m), "reflected": min(reflected, 2), "checking": checking, "last": last})
+        tables.append({"no": _table_no(m), "started": None if checking else started,
+                       "reflected": min(reflected, 2), "checking": checking, "last": last})
     return {"day": day, "prevDay": dates[-2] if len(dates) > 1 else None, "base": base, "tables": tables}
 
 
