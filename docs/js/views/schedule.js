@@ -57,7 +57,7 @@ function recentToggle(n) {
 function recentBreakdown(recent) {
   const c = [1, 2, 3, 4].map(k => recent.filter(r => r === k).length);
   const avg = recent.reduce((a, r) => a + r, 0) / recent.length;
-  return h("div", { class: "favsum__breakdown" }, `1着${c[0]}・2着${c[1]}・3着${c[2]}・4着${c[3]}（平均着順 ${avg.toFixed(2)}）`);
+  return h("div", { class: "favsum__breakdown" }, `1着${c[0]}回・2着${c[1]}回・3着${c[2]}回・4着${c[3]}回（平均着順 ${avg.toFixed(2)}）`);
 }
 
 export function viewSchedule() {
