@@ -5,7 +5,7 @@ import { drawProgression } from "../chart.js";
 import { note, sectionTitle, sourceNote } from "../components.js";
 import { chipRow, h, pressable } from "../dom.js";
 import { dayLabel, pt, ptClass } from "../format.js";
-import { standingSeasons, standingsProgress, teamShort } from "../model.js";
+import { borderDiffs, SEMIFINAL_SPOTS, standingSeasons, standingsProgress, teamPlacements, teamShort } from "../model.js";
 import { set, state } from "../store.js";
 
 const STAGES = [["F", "ファイナル"], ["SF", "セミファイナル"], ["R", "レギュラーシーズン"]];
@@ -27,20 +27,41 @@ export function viewStandings() {
 
 function pickSeason(seasons, s) { return seasons.includes(s) ? s : seasons[0]; }
 
+// 右側の列の切り替え（標準／ボーダー／着順）
+const COLS = {
+  standard: { label: "標準", head: ["差", "試合"], cells: r => [
+    h("td", { class: "sub" }, r.diff == null ? "―" : pt(r.diff)),
+    h("td", { class: "sub" }, `${r.games}/${r.totalGames}`)] },
+  border: { label: "ボーダー", head: ["ボーダー", "試合"], cells: (r, x) => [
+    h("td", { class: "border " + ptClass(x.border[r.team]) }, signed(x.border[r.team])),
+    h("td", { class: "sub" }, `${r.games}/${r.totalGames}`)] },
+  placements: { label: "着順", head: ["1着", "2着", "3着", "4着"], cells: (r, x) =>
+    (x.places[r.team] ?? [0, 0, 0, 0]).map(n => h("td", { class: "sub place" }, n)) },
+};
+function signed(v) { return v == null ? "―" : v > 0 ? `+${v.toFixed(1)}` : v < 0 ? pt(v) : "0.0"; }
+
 function current() {
-  const table = h("table", { class: "standings" },
-    h("thead", {}, h("tr", {}, h("th", {}, ""), h("th", {}, "チーム"), h("th", {}, "ポイント"), h("th", {}, "差"), h("th", {}, "試合"))),
-    h("tbody", {}, state.data.standings.map(r => h("tr", { class: (r.rank === 7 ? "is-cut " : "") + (r.team === state.fav ? "is-fav" : ""), style: "cursor:pointer", onclick: () => actions.openTeam(r.team) },
+  const key = COLS[state.standingsCols] ? state.standingsCols : "standard";
+  const cols = COLS[key];
+  const extra = { border: borderDiffs(), places: teamPlacements() };
+  const table = h("table", { class: "standings cols-" + key },
+    h("thead", {}, h("tr", {}, h("th", {}, ""), h("th", {}, "チーム"), h("th", {}, "ポイント"), cols.head.map(t => h("th", {}, t)))),
+    h("tbody", {}, state.data.standings.map(r => h("tr", { class: (r.rank === SEMIFINAL_SPOTS + 1 ? "is-cut " : "") + (r.team === state.fav ? "is-fav" : ""), style: "cursor:pointer", onclick: () => actions.openTeam(r.team) },
       h("td", { class: "rank" + (r.rank === 1 ? " rank-1" : "") }, r.rank),
       h("td", { class: "team" }, teamShort(r.team)),
       h("td", { class: "pts " + ptClass(r.points) }, pt(r.points)),
-      h("td", { class: "sub" }, r.diff == null ? "―" : pt(r.diff)),
-      h("td", { class: "sub" }, `${r.games}/${r.totalGames}`)))));
+      cols.cells(r, extra)))));
+  const colNote = {
+    standard: "差は1つ上のチームとのポイント差です。",
+    border: "ボーダー差は、1〜6位は7位との差（リード）、7位以下は6位との差（届くまで）です。",
+    placements: "着順は今季の試合結果から数えています。試合結果の反映が順位表より少し遅れる間は、試合数と1試合ずれることがあります。",
+  }[key];
   return [
     sectionTitle("チーム順位（レギュラーシーズン）"),
     progressLine(),
+    chipRow(Object.entries(COLS).map(([k, c]) => [k, c.label]), key, v => set({ standingsCols: v })),
     h("section", { class: "card" }, table),
-    note("破線より上の6チームがセミファイナル進出圏。チームをタップすると所属選手の成績と過去シーズンの結果が見られます。"),
+    note(`破線より上の6チームがセミファイナル進出圏。${colNote}チームをタップすると所属選手の成績と過去シーズンの結果が見られます。`),
     sectionTitle("ポイント推移"),
     h("section", { class: "card chart-card" }, h("div", { id: "chart" }), h("div", { class: "legend", id: "legend" })),
     note("チーム名をタップすると最大3チームまで色付きで比較できます。グラフをなぞると各日の全チームのポイントが見られます。"),

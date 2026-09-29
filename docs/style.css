@@ -353,3 +353,21 @@ button { font: inherit; color: inherit; }
 /* ---------- ポストシーズン ---------- */
 .post-total { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 12px; border-top: 1px solid var(--line); font-size: 13px; color: var(--ink-2); }
 .post-total b { font-size: 15px; font-variant-numeric: tabular-nums; }
+
+/* ---------- 今季の順位表の列切り替え ---------- */
+.standings.cols-placements th:nth-child(n+4), .standings.cols-placements td.place { padding-left: 3px; padding-right: 7px; white-space: nowrap; }
+.standings.cols-placements td.place { width: 30px; }
+.standings.cols-placements th:nth-child(n+4) { font-size: 10.5px; }
+.standings.cols-border td.border { font-size: 13px; font-weight: 700; white-space: nowrap; }
+.standings.cols-border th { white-space: nowrap; }
+/* 幅の狭いスマホ（375px 未満。Android に多い 360px を含む）では順位表の余白と文字を少し詰める */
+@media (max-width: 374px) {
+  .standings td, .standings th { padding-left: 5px; padding-right: 6px; }
+  .standings td.rank { width: 26px; }
+  .standings td.team { font-size: 13.5px; }
+  .standings td.pts { font-size: 14.5px; }
+  .standings td.sub { font-size: 12px; }
+  .standings.cols-placements th:nth-child(n+4), .standings.cols-placements td.place { padding-left: 2px; padding-right: 5px; }
+  .standings.cols-placements td.place { width: 24px; }
+  .standings.cols-border td.border { font-size: 12px; }
+}

@@ -254,3 +254,26 @@ export function standingsProgress() {
   }
   return { day, prevDay: dates.at(-2) ?? null, tables, single: tables.length === 1 };
 }
+
+// ---------- 今季の順位表の追加列 ----------
+export const SEMIFINAL_SPOTS = 6;
+
+// セミファイナルボーダー差: 1〜6位は7位との差（＋）、7位以下は6位との差（▲）
+export function borderDiffs() {
+  const rows = [...state.data.standings].sort((a, b) => a.rank - b.rank);
+  const p6 = rows[SEMIFINAL_SPOTS - 1]?.points, p7 = rows[SEMIFINAL_SPOTS]?.points;
+  if (p6 == null || p7 == null) return {};
+  return Object.fromEntries(rows.map(r => [r.team, round1(r.rank <= SEMIFINAL_SPOTS ? r.points - p7 : r.points - p6)]));
+}
+
+// 各チームの今季の着順回数（試合結果から数える）
+export function teamPlacements() {
+  const out = {};
+  for (const m of allMatches()) for (const g of m.games) for (const r of g.results) {
+    const t = teamOfPlayer(r.name);
+    if (!t) continue;
+    out[t] ??= [0, 0, 0, 0];
+    out[t][r.rank - 1]++;
+  }
+  return out;
+}
