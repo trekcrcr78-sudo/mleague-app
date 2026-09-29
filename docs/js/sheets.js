@@ -1,7 +1,7 @@
 // 下から出てくる詳細シート（試合・選手・チーム）
 
 import { actions } from "./actions.js";
-import { awardValue, gameBlock, note, resultCard, sourceNote, stat, teamTag, titleBadges } from "./components.js";
+import { asOfLine, awardValue, gameBlock, note, resultCard, sourceNote, stat, teamTag, titleBadges } from "./components.js";
 import { $, h, pressable, segmented } from "./dom.js";
 import { dayLabel, dec2, int, pct, pt, ptClass, round1 } from "./format.js";
 import { aggregate, allMatches, currentPlayer, isActive, playerLog, seasonRows, teamName, teamOfPlayer, teamShort, titlesOf } from "./model.js";
@@ -58,6 +58,7 @@ function playerSeason(name, team, tabs) {
   return [
     hero(name, [teamTag(team), `${int(p.games)}試合・${int(p.hands)}局`], p.points, "ポイント"),
     tabs,
+    asOfLine(),
     h("div", { class: "stat-grid" },
       stat("平均着順", dec2(p.avgRank)), stat("トップ率", pct(p.topRate)), stat("連対率", pct(p.rentaiRate)),
       stat("ラス回避率", pct(p.lastAvoidRate)), stat("アガリ率", pct(p.winRate)), stat("平均打点", int(p.avgWin)),

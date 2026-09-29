@@ -42,6 +42,28 @@ def save_if_changed(path, old, new):
     return True
 
 
+def players_snapshot(fresh, by_month, old):
+    """個人成績は「その日の全試合が反映された時点」でまとめて切り替える。
+
+    公式の個人成績は試合結果より遅れて1試合ずつ更新されるため、途中の状態は使わず前回の成績を保つ。
+    戻り値: (players, asOf)  asOf = 反映済みの最後の日付（開幕前は None）
+    """
+    matches = [m for ms in by_month.values() for m in ms]
+    days = sorted({m["date"] for m in matches if m["games"]})
+    # その日の試合がすべて終わっている日だけが区切りの候補
+    complete = [d for d in days if all(m["finished"] for m in matches if m["date"] == d)]
+    stats = {p["name"]: int(p.get("games") or 0) for p in fresh}
+    for d in reversed(complete):
+        played = Counter(r["name"] for m in matches if m["date"] <= d for g in m["games"] for r in g["results"])
+        if all(stats.get(n, 0) == played.get(n, 0) for n in set(stats) | set(played)):
+            return fresh, d
+    if not days and not any(stats.values()):
+        return fresh, None  # 開幕前
+    if old.get("players") is not None and "playersAsOf" in old:
+        return old["players"], old["playersAsOf"]  # 反映の途中なので前回の成績のまま
+    return fresh, None
+
+
 def scrape_current(now, full, old):
     top = fetch("/")
     stats_page = fetch("/stats/")
@@ -63,6 +85,7 @@ def scrape_current(now, full, old):
         if (y, m) in months:
             by_month[f"{y}-{m:02d}"] = parse_month(fetch(f"/games/?mly={y}&mlm={m}"), year_of_month)
 
+    players, as_of = players_snapshot(players, by_month, old)
     return {
         "updatedAt": now.isoformat(timespec="seconds"),
         "source": BASE,
@@ -70,6 +93,7 @@ def scrape_current(now, full, old):
         "teams": {tid: {"name": full_, "short": short} for tid, (full_, short, _) in TEAMS.items()},
         "standings": parse_standings(top),
         "players": players,
+        "playersAsOf": as_of,
         "matchesByMonth": by_month,
     }
 

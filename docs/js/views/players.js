@@ -1,7 +1,7 @@
 // 個人成績タブ: 今季・シーズン別・通算（いずれもレギュラーシーズン）のランキング
 
 import { actions } from "../actions.js";
-import { note, sourceNote, teamTag, titleBadges } from "../components.js";
+import { asOfLine, note, sourceNote, teamTag, titleBadges } from "../components.js";
 import { chipRow, h, pressable } from "../dom.js";
 import { dec2, int, pct, pt, ptClass } from "../format.js";
 import { careerOf, isActive, pastSeasons, rosterNames, seasonTable, teamOfPlayer, teamShort, titlesInSeason } from "../model.js";
@@ -95,6 +95,7 @@ export function viewPlayers() {
     chipRow([["all", "全チーム"], ...state.data.standings.map(r => [r.team, teamShort(r.team)])], ps.team, v => setPlayers({ team: v })));
 
   return [controls,
+    scope !== "past" ? asOfLine() : null,
     rows.length ? rankList(rows, sort, { meta, onOpen, badges }) : h("p", { class: "empty" }, "該当する選手がいません"),
     notes];
 }

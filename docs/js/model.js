@@ -44,10 +44,22 @@ export function matchStatus(m) {
   return "upcoming";
 }
 
+// 対局履歴も個人成績と同じ時点（playersAsOf）までにそろえる
 export function playerLog(name) {
+  const asOf = state.data.playersAsOf;
   const rows = [];
-  for (const m of allMatches()) for (const g of m.games) for (const r of g.results) if (r.name === name) rows.push({ date: m.date, no: g.no, ...r });
+  for (const m of allMatches()) {
+    if (asOf && m.date > asOf) continue;
+    for (const g of m.games) for (const r of g.results) if (r.name === name) rows.push({ date: m.date, no: g.no, ...r });
+  }
   return rows.reverse();
+}
+
+// 個人成績がいつの時点のものか。pending = それより後に結果が出ている日（まとめて更新待ち）
+export function playersAsOfInfo() {
+  const asOf = state.data.playersAsOf ?? null;
+  const later = allMatches().filter(m => m.games.length && (!asOf || m.date > asOf)).map(m => m.date);
+  return { asOf, pending: later.length ? later.sort().at(-1) : null };
 }
 
 // ---------- 過去シーズン・通算（レギュラーシーズン） ----------

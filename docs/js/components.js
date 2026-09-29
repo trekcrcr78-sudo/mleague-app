@@ -3,7 +3,7 @@
 import { actions } from "./actions.js";
 import { h, pressable } from "./dom.js";
 import { dayLabel, int, pct, pt, ptClass } from "./format.js";
-import { AWARD_SHORT, matchStatus, teamOfPlayer, teamShort, wikiSource } from "./model.js";
+import { AWARD_SHORT, matchStatus, playersAsOfInfo, teamOfPlayer, teamShort, wikiSource } from "./model.js";
 import { state } from "./store.js";
 
 // チーム名の札。推しチームの色付けは日程だけで使う（markFav: true）
@@ -71,4 +71,13 @@ export function awardValue(t) {
   if (t.award === "4着回避率賞") return pct(t.value);
   if (t.award === "最多トップ賞") return `${int(t.value)}回`;
   return String(t.value);
+}
+
+// 個人成績の時点表示（例: 9/28（月）終了時点の成績）
+export function asOfLine() {
+  const { asOf, pending } = playersAsOfInfo();
+  if (!asOf && !pending) return null;
+  return h("div", { class: "asof" },
+    h("span", { class: "asof__main" }, asOf ? `${dayLabel(asOf)}終了時点の成績` : "開幕前の成績"),
+    pending ? h("span", { class: "asof__sub" }, `${dayLabel(pending)}の分は、その日の全試合が公式に反映されてからまとめて更新します`) : null);
 }
