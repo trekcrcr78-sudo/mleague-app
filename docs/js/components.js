@@ -11,14 +11,12 @@ export function teamTag(id, { markFav = false } = {}) {
   return h("span", { class: "team-tag" + (markFav && id === state.fav ? " is-fav" : "") }, teamShort(id));
 }
 
-// m を渡すと、対局中の卓は「第1回戦 対局中」「第1回戦 終了」のように何回戦かも出す
+// m を渡すと、対局中の卓は「第1回戦 対局中」のように何回戦かも出す（終わった半荘の数＋1）
 export function statusBadge(st, m) {
   const ph = st === "live" && m ? livePhase(m) : null;
   if (ph) {
-    if (ph.started === 0) st = "today";
-    else if (ph.started > ph.reflected) return h("span", { class: "badge badge--live" }, `第${ph.started}回戦 対局中`);
-    else if (ph.reflected < 2) return h("span", { class: "badge badge--done" }, `第${ph.reflected}回戦 終了`);
-    else st = "done";
+    if (ph.reflected >= 2) st = "done";
+    else return h("span", { class: "badge badge--live" }, `第${ph.reflected + 1}回戦 対局中`);
   }
   if (st === "live") return h("span", { class: "badge badge--live" }, "対局中");
   if (st === "today") return h("span", { class: "badge badge--next" }, "本日");

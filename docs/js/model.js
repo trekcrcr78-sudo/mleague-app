@@ -44,12 +44,12 @@ export function matchStatus(m) {
   return "upcoming";
 }
 
-// 今日の卓が第何回戦まで始まり、何回戦まで終わったか（取り込み時点。照合できないときは null）
+// 今日の卓が何回戦まで終わったか（取り込み時点。照合できないときは null）
 export function livePhase(m) {
   const p = state.data.standingsProgress;
   if (!p || p.day !== m.date) return null;
   const t = p.tables?.find(t => t.no === tableNo(m));
-  return t && !t.checking && t.started != null ? t : null;
+  return t && !t.checking ? t : null;
 }
 
 // 対局履歴も個人成績と同じ時点（playersAsOf）までにそろえる

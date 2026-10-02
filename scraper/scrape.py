@@ -76,7 +76,8 @@ def _table_no(m):
 def standings_progress(now, by_month, standings, team_of, old):
     """順位表に今日（直近の開催日）のどの半荘まで入っているかを卓ごとに数える。
 
-    公式の順位表は、半荘が終わるとその卓の4チームのポイントがまとめて動く（試合数は始まった時点で増える）。
+    公式の順位表は、半荘が終わるとその卓の4チームのポイントがまとめて動く。
+    （試合数は半荘の途中で増えるが、増える時点が卓によってまちまちなので判断には使わない）
     取り込みのたびに前回からポイントが動いたかを見て、動いた回数＝反映済みの半荘数とする。
     試合結果ページに結果が載っていれば、そこから計算したポイントと照らし合わせて確定させる。
     照合がつかないとき（公式側の一時的なずれなど）は、最後に確認できた数のまま checking=True にする。
@@ -117,9 +118,7 @@ def standings_progress(now, by_month, standings, team_of, old):
     for m in on_day:
         prev = prev_tables.get(_table_no(m))
         cur = {t: std[t]["points"] if t in std else None for t in m["teams"]}
-        started = {(std[t]["games"] if t in std else 0) - base.get(t, {}).get("games", 0) for t in m["teams"]}
-        started = started.pop() if len(started) == 1 else None
-        checking = global_check or started is None or not 0 <= started <= 2
+        checking = global_check
         last = prev["last"] if prev else {t: base.get(t, {}).get("points") for t in m["teams"]}
         reflected = prev["reflected"] if prev else 0
         diffs = [(cur[t] or 0) - (last.get(t) or 0) for t in m["teams"]]
@@ -137,10 +136,7 @@ def standings_progress(now, by_month, standings, team_of, old):
                         expected[team_of[r["name"]]] += r["point"]
             if all(_same(cur[t], expected[t]) for t in m["teams"]):
                 reflected, last = len(m["games"]), cur
-        if not checking:
-            reflected = min(reflected, started)
-        tables.append({"no": _table_no(m), "started": None if checking else started,
-                       "reflected": min(reflected, 2), "checking": checking, "last": last})
+        tables.append({"no": _table_no(m), "reflected": min(reflected, 2), "checking": checking, "last": last})
     return {"day": day, "prevDay": dates[-2] if len(dates) > 1 else None, "base": base, "tables": tables}
 
 
