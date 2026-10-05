@@ -1,5 +1,5 @@
 import { actions } from "../actions.js";
-import { sectionTitle, statusBadge, teamTag, note } from "../components.js";
+import { sectionTitle, statusBadge, teamTag, note, watchButton } from "../components.js";
 import { h, pressable } from "../dom.js";
 import { DOW, dayLabel, dowOf, mdLabel, pt, ptClass, todayStr } from "../format.js";
 import { allMatches, borderDiffs, favSummary, matchStatus, tableNo, teamShort } from "../model.js";
@@ -13,7 +13,8 @@ function matchRow(m, tablesThatDay) {
     h("div", { class: "match__head" },
       tablesThatDay > 1 ? h("span", { class: "match__table" }, `${tableNo(m)}卓目`) : null,
       h("span", { class: "match__status" }, statusBadge(matchStatus(m), m))),
-    h("div", { class: "match__teams" }, m.teams.map(t => teamTag(t, { markFav: true }))));
+    h("div", { class: "match__teams" }, m.teams.map(t => teamTag(t, { markFav: true }))),
+    watchButton(m));
 }
 
 // 推しチームのまとめ（A案）: 順位・ポイント・ボーダー、今日（なければ次）の対局、直近5半荘の着順
@@ -33,7 +34,8 @@ function favSummaryCard(team) {
     matchBox = h("div", { class: "favsum__match" },
       h("div", { class: "favsum__label" },
         h("span", {}, `${s.isToday ? "今日" : "次の対局"} ${dayLabel(m.date)} ${table}`.trim()), statusBadge(matchStatus(m), m)),
-      h("div", { class: "favsum__vs" }, `vs ${others}`));
+      h("div", { class: "favsum__vs" }, `vs ${others}`),
+      watchButton(m));
   }
   return h("section", { class: "card favsum", ...pressable(() => actions.openTeam(team)) },
     h("div", { class: "favsum__head" }, h("span", { class: "favsum__name" }, teamShort(team)), h("span", { class: "favsum__more" }, "チーム詳細 ›")),

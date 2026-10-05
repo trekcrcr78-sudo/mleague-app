@@ -52,6 +52,19 @@ export function livePhase(m) {
   return t && !t.checking ? t : null;
 }
 
+// いま対局中か（19時以降で、2半荘とも終わったと確認できていない今日の卓）
+export function isLiveNow(m) {
+  if (matchStatus(m) !== "live") return false;
+  const ph = livePhase(m);
+  return !ph || ph.reflected < 2;
+}
+
+// 中継へのリンク（公式の日程ページの各卓のもの。無ければ ABEMA の麻雀チャンネル）
+const ABEMA_MAHJONG = "https://abema.tv/now-on-air/mahjong";
+export function watchUrl(m) {
+  return typeof m.watch === "string" && m.watch.startsWith("https://abema.tv/") ? m.watch : ABEMA_MAHJONG;
+}
+
 // 対局履歴も個人成績と同じ時点（playersAsOf）までにそろえる
 export function playerLog(name) {
   const asOf = state.data.playersAsOf;

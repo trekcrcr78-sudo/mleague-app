@@ -78,7 +78,9 @@ def standings_progress(now, by_month, standings, team_of, old):
 
     公式の順位表は、半荘が終わるとその卓の4チームのポイントがまとめて動く。
     （試合数は半荘の途中で増えるが、増える時点が卓によってまちまちなので判断には使わない）
-    取り込みのたびに前回からポイントが動いたかを見て、動いた回数＝反映済みの半荘数とする。
+    卓ごとに見たことのあるポイントの状態を [起点, 1半荘後, 2半荘後] と記録し、今の状態がどれと同じかで数える。
+    新しい状態（4チームの増減の合計が0）が出たら次の半荘が終わったとみなす。前の状態に戻ったとき
+    （公式が一時的に古い順位表を返したとき）は数え直さない。
     試合結果ページに結果が載っていれば、そこから計算したポイントと照らし合わせて確定させる。
     照合がつかないとき（公式側の一時的なずれなど）は、最後に確認できた数のまま checking=True にする。
     """
@@ -119,14 +121,26 @@ def standings_progress(now, by_month, standings, team_of, old):
         prev = prev_tables.get(_table_no(m))
         cur = {t: std[t]["points"] if t in std else None for t in m["teams"]}
         checking = global_check
-        last = prev["last"] if prev else {t: base.get(t, {}).get("points") for t in m["teams"]}
-        reflected = prev["reflected"] if prev else 0
-        diffs = [(cur[t] or 0) - (last.get(t) or 0) for t in m["teams"]]
-        if any(abs(d) >= 0.05 for d in diffs):
-            if abs(sum(diffs)) < 0.25:   # 1半荘分の動き（4チームの増減の合計は0）
-                reflected, last = reflected + 1, cur
-            else:                        # 4チームの一部だけ更新された途中の状態
+        start = {t: base.get(t, {}).get("points") for t in m["teams"]}
+        if prev and "states" in prev:
+            states = prev["states"]
+        elif prev:                       # 以前の形式（last のみ）からの引き継ぎ
+            states = [start] + [None] * max(prev["reflected"] - 1, 0) + ([prev["last"]] if prev["reflected"] else [])
+        else:
+            states = [start]
+        same_as = lambda s: s is not None and all(_same(cur[t], s.get(t)) for t in m["teams"])
+        seen = [k for k, s in enumerate(states) if same_as(s)]
+        if seen:
+            reflected = seen[-1]
+            checking = checking or reflected < len(states) - 1   # 前の状態に戻った（公式の一時的な巻き戻り）
+        else:
+            last = states[-1] or start
+            diffs = [(cur[t] or 0) - (last.get(t) or 0) for t in m["teams"]]
+            if abs(sum(diffs)) < 0.25 and len(states) < 3:   # 1半荘分の動き（4チームの増減の合計は0）
+                states = states + [cur]
+            else:                                            # 4チームの一部だけ更新された途中の状態など
                 checking = True
+            reflected = len(states) - 1
         # 試合結果ページで確かめる（遅れて載るので、載っていればそれで確定）
         if m["games"]:
             expected = {t: base.get(t, {}).get("points", 0) for t in m["teams"]}
@@ -134,9 +148,11 @@ def standings_progress(now, by_month, standings, team_of, old):
                 for r in g["results"]:
                     if team_of.get(r["name"]) in expected:
                         expected[team_of[r["name"]]] += r["point"]
+            n = len(m["games"])
             if all(_same(cur[t], expected[t]) for t in m["teams"]):
-                reflected, last = len(m["games"]), cur
-        tables.append({"no": _table_no(m), "reflected": min(reflected, 2), "checking": checking, "last": last})
+                reflected, checking = n, global_check
+                states = (states[:n] + [None] * (n - len(states)) + [cur])[:n + 1]
+        tables.append({"no": _table_no(m), "reflected": min(reflected, 2), "checking": checking, "states": states})
     return {"day": day, "prevDay": dates[-2] if len(dates) > 1 else None, "base": base, "tables": tables}
 
 
@@ -172,6 +188,13 @@ def scrape_current(now, full, old):
 
     players, as_of = players_snapshot(players, by_month, old)
     standings = parse_standings(top)
+    season = season_label(months[0][0] if months else now.year)
+    old_std = old.get("standings") or []
+    # （同じシーズン・同じステージ＝予定試合数が同じときだけ。セミファイナル開始などで試合数が数え直されたときは除く）
+    same_stage = sorted(r["totalGames"] for r in standings) == sorted(r.get("totalGames") for r in old_std)
+    if old.get("season") == season and old_std and same_stage and sum(r["games"] for r in standings) < sum(r["games"] for r in old_std):
+        print("standings: 公式の順位表が前回より古いので、前回の順位表のままにします")
+        standings = old_std
     # レギュラーシーズンが全日程終わったか（選手の試合数の合計 = 各チームの予定試合数の合計）
     regular_total = sum(r["totalGames"] for r in standings)
     regular_complete = bool(regular_total) and sum(int(p.get("games") or 0) for p in players) >= regular_total
@@ -180,7 +203,7 @@ def scrape_current(now, full, old):
     return {
         "updatedAt": now.isoformat(timespec="seconds"),
         "source": BASE,
-        "season": season_label(months[0][0] if months else now.year),
+        "season": season,
         "teams": {tid: {"name": full_, "short": short} for tid, (full_, short, _) in TEAMS.items()},
         "standings": standings,
         "standingsProgress": progress,

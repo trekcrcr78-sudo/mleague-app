@@ -3,7 +3,7 @@
 import { actions } from "./actions.js";
 import { h, pressable } from "./dom.js";
 import { dayLabel, int, pct, pt, ptClass } from "./format.js";
-import { AWARD_SHORT, livePhase, matchStatus, playersAsOfInfo, STAGE_NAME, teamOfPlayer, teamShort, wikiSource } from "./model.js";
+import { AWARD_SHORT, isLiveNow, livePhase, matchStatus, watchUrl, playersAsOfInfo, STAGE_NAME, teamOfPlayer, teamShort, wikiSource } from "./model.js";
 import { state } from "./store.js";
 
 // チーム名の札。推しチームの色付けは日程だけで使う（markFav: true）
@@ -23,6 +23,13 @@ export function statusBadge(st, m) {
   if (st === "done") return h("span", { class: "badge badge--done" }, "終了");
   if (st === "pending") return h("span", { class: "badge badge--done" }, "集計中");
   return null;
+}
+
+// 対局中の卓だけに出す中継ボタン（カードのタップで結果が開かないよう、押したときは止める）
+export function watchButton(m) {
+  if (!isLiveNow(m)) return null;
+  return h("a", { class: "watch", href: watchUrl(m), target: "_blank", rel: "noopener",
+    onclick: e => e.stopPropagation(), onkeydown: e => e.stopPropagation() }, "▶ ABEMAで見る");
 }
 
 export function playerLink(name, opts) {

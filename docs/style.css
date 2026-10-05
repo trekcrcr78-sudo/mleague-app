@@ -433,3 +433,7 @@ button { font: inherit; color: inherit; }
 .rtable__head { display: flex; align-items: center; gap: 8px; min-height: 20px; margin-bottom: 6px; }
 .rtable__no { font-size: 12.5px; font-weight: 750; color: var(--ink-2); }
 .rtable__status { margin-left: auto; }
+
+/* 対局中の卓の中継ボタン */
+.watch { display: block; margin-top: 6px; padding: 6px 10px; border: 1.5px solid var(--live); border-radius: 8px; color: var(--live); font-size: 13px; font-weight: 750; text-align: center; text-decoration: none; }
+.watch:active { filter: brightness(0.9); }

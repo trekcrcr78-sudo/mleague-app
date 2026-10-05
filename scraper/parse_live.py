@@ -94,12 +94,14 @@ def parse_month(soup, year_of_month):
         date = f"{year_of_month(mm)}-{mm:02d}-{dd:02d}"
         seen[date] = seen.get(date, 0) + 1
         key = li.get("data-target")
+        watch = li.select_one('a[href^="https://abema.tv/"]')
         matches.append({
             "id": f"{date}-{seen[date]}",
             "date": date,
             "teams": [team_id(img["alt"]) for img in li.select("img")],
             "finished": "is-finish" in (li.get("class") or []),
             "games": results.get(key, []) if key else [],
+            **({"watch": watch["href"]} if watch else {}),  # 中継（ABEMA）へのリンク。公式に載っているときだけ
         })
     return matches
 
