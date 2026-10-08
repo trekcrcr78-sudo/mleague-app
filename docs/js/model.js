@@ -281,6 +281,73 @@ export function teamPlacements() {
   return out;
 }
 
+// ---------- チームの着順（今季は試合結果から、過去は各選手の成績をチームごとに合計） ----------
+const emptyRanks = () => ({ games: 0, points: 0, r1: 0, r2: 0, r3: 0, r4: 0 });
+function addRanks(acc, r) {
+  acc.games += r.games || 0; acc.points += r.points || 0;
+  for (const k of [1, 2, 3, 4]) acc["r" + k] += r["r" + k] || 0;
+  return acc;
+}
+export function rankRates(c) {
+  if (!c?.games) return null;
+  return { ...c, points: round1(c.points), topRate: c.r1 / c.games, rentaiRate: (c.r1 + c.r2) / c.games,
+    lastAvoidRate: 1 - c.r4 / c.games, avgRank: (c.r1 + 2 * c.r2 + 3 * c.r3 + 4 * c.r4) / c.games, perGame: c.points / c.games };
+}
+
+// 今季（レギュラー）の着順。asOf = 結果が載っている最後の日
+export function teamSeasonRanks(team) {
+  const c = emptyRanks();
+  let asOf = null;
+  for (const m of allMatches()) {
+    if (!m.teams.includes(team)) continue;
+    for (const g of m.games) for (const r of g.results) {
+      if (teamOfPlayer(r.name) !== team) continue;
+      c.games++; c.points += r.point; c["r" + r.rank]++; asOf = m.date;
+    }
+  }
+  return c.games ? { ...rankRates(c), asOf } : null;
+}
+
+// シーズン別（レギュラー）。過去は Wikipedia → アプリが保存した公式の成績（あれば優先）
+export function teamCareerRows(team) {
+  const cur = state.data.season;
+  const rows = [];
+  const now = teamSeasonRanks(team);
+  const st = state.data.standings.find(r => r.team === team);
+  if (now) rows.push({ ...now, season: cur, current: true, rank: st?.rank ?? null, points: st?.points ?? now.points });
+  const seasons = { ...(state.history?.wiki?.seasons ?? {}), ...(state.history?.archive ?? {}) };
+  for (const [season, list] of Object.entries(seasons)) {
+    if (season === cur) continue;
+    const c = rankRates(list.filter(r => r.team === team).reduce(addRanks, emptyRanks()));
+    if (!c) continue;
+    const R = state.history?.standings?.[season]?.R ?? [];
+    const i = R.findIndex(r => r.team === team);
+    rows.push({ ...c, season, rank: i >= 0 ? i + 1 : null, points: i >= 0 ? R[i].points : c.points });
+  }
+  return rows.sort((a, b) => b.season.localeCompare(a.season));
+}
+
+export function teamTotal(rows) {
+  const c = rows.reduce(addRanks, emptyRanks());
+  return rankRates(c);
+}
+
+// ポストシーズン（ステージ内の成績）。今季=公式（毎日3時）、過去=保存した公式の成績 → なければ Wikipedia
+export function teamPostRows(team) {
+  const cur = state.data.season;
+  const archive = state.history?.archivePost ?? {}, wiki = state.history?.wiki?.postseason ?? {};
+  const seasons = new Set([...Object.keys(wiki), ...Object.keys(archive), cur]);
+  const rows = [];
+  for (const season of seasons) {
+    const stages = season === cur ? state.data.postseason : (archive[season] ?? wiki[season]);
+    for (const stage of ["F", "SF"]) {
+      const c = rankRates((stages?.[stage] ?? []).filter(r => r.team === team).reduce(addRanks, emptyRanks()));
+      if (c) rows.push({ ...c, season, stage, current: season === cur });
+    }
+  }
+  return rows.sort((a, b) => b.season.localeCompare(a.season));
+}
+
 // ---------- 役満（Wikipedia「Mリーグ」役満達成一覧） ----------
 export const STAGE_NAME = { R: "レギュラー", SF: "セミファイナル", F: "ファイナル" };
 export function yakumanRows() {

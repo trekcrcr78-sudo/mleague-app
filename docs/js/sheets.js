@@ -3,8 +3,8 @@
 import { actions } from "./actions.js";
 import { asOfLine, awardValue, gameBlock, note, playerLink, resultCard, sourceNote, stat, teamTag, titleBadges } from "./components.js";
 import { $, h, pressable, segmented } from "./dom.js";
-import { dayLabel, dec2, int, pct, pt, ptClass, round1 } from "./format.js";
-import { aggregate, allMatches, currentPlayer, isActive, playerLog, postseasonRows, seasonRows, STAGE_NAME, teamName, teamOfPlayer, teamShort, titlesOf, yakumanOf } from "./model.js";
+import { dayLabel, dec2, int, pct, pt, ptClass } from "./format.js";
+import { aggregate, allMatches, currentPlayer, isActive, playerLog, postseasonRows, seasonRows, STAGE_NAME, teamCareerRows, teamName, teamOfPlayer, teamPostRows, teamSeasonRanks, teamShort, teamTotal, titlesOf, yakumanOf } from "./model.js";
 import { set, setFav, state } from "./store.js";
 
 let current = null; // 開いているシートの描画関数（データ更新時に描き直す）
@@ -154,29 +154,82 @@ function postseasonSection(name) {
 
 // ---------- チーム ----------
 function openTeam(t) {
+  const ui = { view: "season" };
   show(() => {
-    const row = state.data.standings.find(r => r.team === t);
-    const members = state.data.players.filter(p => p.team === t).sort((a, b) => b.points - a.points);
-    const recent = allMatches().filter(m => m.games.length && m.teams.includes(t)).reverse().slice(0, 5);
-    const past = Object.entries(state.history?.teamStages?.[t] ?? {}).filter(([, v]) => v.R != null).map(([s, v]) => [s, v.R]).reverse();
-    return [
-      hero(teamName(t), row ? `${row.rank}位・${row.games}/${row.totalGames}試合` : "", row?.points, "ポイント"),
-      h("button", { class: "fav-btn", type: "button", "aria-pressed": String(state.fav === t), onclick: () => setFav(state.fav === t ? null : t) },
-        state.fav === t ? "★ 推しチームに設定中" : "☆ 推しチームにする"),
-      h("h3", { class: "section-title" }, "所属選手"),
-      h("section", { class: "card" }, h("ol", { class: "plist" }, members.map(p => h("li", { class: "prow", ...pressable(() => actions.openPlayer(p.name)) },
-        h("span", { class: "prow__rank" }, ""),
-        h("div", {}, h("div", { class: "prow__name" }, p.name), h("div", { class: "prow__meta" }, `${int(p.games)}試合・平均着順 ${dec2(p.avgRank)}`)),
-        h("div", { class: "prow__val " + ptClass(p.points) }, pt(p.points)))))),
-      recent.length ? [h("h3", { class: "section-title" }, "直近の試合"), recent.map(m => resultCard(m))] : null,
-      past.length ? [
-        h("h3", { class: "section-title" }, "過去シーズンの成績（レギュラー）"),
-        h("section", { class: "card" }, h("table", { class: "career" },
-          h("thead", {}, h("tr", {}, h("th", {}, "シーズン"), h("th", {}, "ポイント"))),
-          h("tbody", {}, past.map(([season, v]) => h("tr", {}, h("td", {}, season), h("td", { class: "strong " + ptClass(v) }, pt(round1(v)))))))),
-      ] : null,
-    ];
+    const tabs = segmented([["season", `今季（${state.data.season}）`], ["career", "通算・シーズン別"]], ui.view, v => { ui.view = v; redrawSheet(); });
+    const favBtn = h("button", { class: "fav-btn", type: "button", "aria-pressed": String(state.fav === t), onclick: () => setFav(state.fav === t ? null : t) },
+      state.fav === t ? "★ 推しチームに設定中" : "☆ 推しチームにする");
+    return ui.view === "career" ? teamCareer(t, favBtn, tabs) : teamSeason(t, favBtn, tabs);
   });
+}
+
+// 着順の数字（半荘数・平均着順・各率）と 1〜4着の回数
+function rankStats(c, { points = false } = {}) {
+  return [
+    h("div", { class: "stat-grid" },
+      stat("半荘数", int(c.games)), stat("平均着順", dec2(c.avgRank)),
+      points ? stat("1半荘平均", pt(c.perGame), ptClass(c.perGame)) : stat("トップ率", pct(c.topRate)),
+      points ? stat("トップ率", pct(c.topRate)) : stat("連対率", pct(c.rentaiRate)),
+      points ? stat("連対率", pct(c.rentaiRate)) : stat("ラス回避率", pct(c.lastAvoidRate)),
+      points ? stat("ラス回避率", pct(c.lastAvoidRate)) : stat("1半荘平均", pt(c.perGame), ptClass(c.perGame))),
+    h("div", { class: "ranks" }, [1, 2, 3, 4].map(k => h("div", {}, h("b", {}, `${int(c["r" + k])}回`), h("span", {}, `${k}着`)))),
+  ];
+}
+
+function teamSeason(t, favBtn, tabs) {
+  const row = state.data.standings.find(r => r.team === t);
+  const members = state.data.players.filter(p => p.team === t).sort((a, b) => b.points - a.points);
+  const recent = allMatches().filter(m => m.games.length && m.teams.includes(t)).reverse().slice(0, 5);
+  const ranks = teamSeasonRanks(t);
+  return [
+    hero(teamName(t), row ? `${row.rank}位・${row.games}/${row.totalGames}試合` : "", row?.points, "ポイント"),
+    favBtn,
+    tabs,
+    h("h3", { class: "section-title" }, ranks ? `今季の着順（${dayLabel(ranks.asOf)}の試合結果まで）` : "今季の着順"),
+    ranks ? rankStats(ranks) : h("p", { class: "empty" }, "まだ対局がありません"),
+    h("h3", { class: "section-title" }, "所属選手"),
+    h("section", { class: "card" }, h("ol", { class: "plist" }, members.map(p => h("li", { class: "prow", ...pressable(() => actions.openPlayer(p.name)) },
+      h("span", { class: "prow__rank" }, ""),
+      h("div", {}, h("div", { class: "prow__name" }, p.name), h("div", { class: "prow__meta" }, `${int(p.games)}試合・平均着順 ${dec2(p.avgRank)}`)),
+      h("div", { class: "prow__val " + ptClass(p.points) }, pt(p.points)))))),
+    recent.length ? [h("h3", { class: "section-title" }, "直近の試合"), recent.map(m => resultCard(m))] : null,
+  ];
+}
+
+// シーズン・ポイント・1〜4着の表（レギュラーとポストシーズンで共通）。sub = シーズンの下に出す小さな文字
+function ranksTable(rows, sub) {
+  return h("table", { class: "career team-ranks" },
+    h("thead", {}, h("tr", {}, h("th", {}, "シーズン"), h("th", {}, "ポイント"), [1, 2, 3, 4].map(k => h("th", {}, `${k}着`)))),
+    h("tbody", {}, rows.map(r => h("tr", { class: r.current ? "is-current" : "" },
+      h("td", {}, h("div", { class: "career__season" }, r.season, r.current ? h("span", { class: "badge badge--next" }, "今季") : null),
+        h("div", { class: "career__team" }, sub(r))),
+      h("td", { class: "strong " + ptClass(r.points) }, pt(r.points)),
+      [1, 2, 3, 4].map(k => h("td", {}, int(r["r" + k])))))));
+}
+
+function teamCareer(t, favBtn, tabs) {
+  const rows = teamCareerRows(t);
+  const total = teamTotal(rows);
+  const post = teamPostRows(t);
+  if (!total) return [hero(teamName(t)), favBtn, tabs, h("p", { class: "empty" }, "通算成績はまだありません")];
+  const first = rows.at(-1).season;
+  const stageLabel = { SF: "セミファイナル", F: "ファイナル" };
+  return [
+    hero(teamName(t), `${first}〜・${rows.length}シーズン`, total.points, "通算（レギュラー）"),
+    favBtn,
+    tabs,
+    h("h3", { class: "section-title" }, "レギュラー通算"),
+    rankStats(total, { points: true }),
+    h("h3", { class: "section-title" }, "シーズン別"),
+    h("section", { class: "card" }, ranksTable(rows, r => r.rank ? `${r.rank}位` : "")),
+    note("レギュラーシーズンの成績です。過去シーズンの着順は、各選手の成績をチームごとに合計しています。"),
+    post.length ? [
+      h("h3", { class: "section-title" }, "ポストシーズン"),
+      h("section", { class: "card" }, ranksTable(post, r => stageLabel[r.stage])),
+      note(`ステージ内の成績です（持ち越しポイントは含みません）。${post.some(r => r.current) && state.data.postseasonAsOf ? `今季の分は${dayLabel(state.data.postseasonAsOf)}終了時点（毎日3時にまとめて更新）。` : ""}`),
+    ] : null,
+    sourceNote(rows.filter(r => !r.current).map(r => r.season)),
+  ];
 }
 
 // ---------- 推しチームの選択（1チームだけ） ----------
