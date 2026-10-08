@@ -199,7 +199,7 @@ function teamSeason(t, favBtn, tabs) {
 
 // セミファイナル争い（6位以内の進出ライン）
 function borderRaceCard(t) {
-  const b = borderRace(t);
+  const b = state.showBorderRace ? borderRace(t) : null;
   if (!b) return null;
   const signed = v => v > 0 ? `+${v.toFixed(1)}` : pt(v);
   return [
@@ -266,6 +266,10 @@ function openFavPicker() {
       h("span", {}, h("b", {}, "日程の一番上にまとめを表示"), h("small", {}, "順位・ボーダー・今日の対局・直近の着順")),
       h("input", { type: "checkbox", role: "switch", checked: state.showFavSummary ? true : null,
         onchange: e => { set({ showFavSummary: e.target.checked }); redrawSheet(); } })),
+    h("label", { class: "switch-row" },
+      h("span", {}, h("b", {}, "セミファイナル争いを表示"), h("small", {}, "6位以内に必要な1半荘平均の目安（チームの画面・まとめ）")),
+      h("input", { type: "checkbox", role: "switch", checked: state.showBorderRace ? true : null,
+        onchange: e => { set({ showBorderRace: e.target.checked }); redrawSheet(); } })),
   ]);
 }
 

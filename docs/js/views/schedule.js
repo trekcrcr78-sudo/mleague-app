@@ -51,7 +51,7 @@ function favSummaryCard(team) {
 
 // セミファイナル争いの1行（詳しくはチームの画面）
 function raceLine(team) {
-  const b = borderRace(team);
+  const b = state.showBorderRace ? borderRace(team) : null;
   if (!b) return null;
   return h("div", { class: "favsum__race" }, b.inside
     ? `6位以内キープ：1半荘平均 ${pt(b.pace)} まで`
