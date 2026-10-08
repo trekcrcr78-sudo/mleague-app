@@ -7,8 +7,18 @@ import { AWARD_SHORT, isLiveNow, livePhase, matchStatus, watchUrl, playersAsOfIn
 import { state } from "./store.js";
 
 // チーム名の札。推しチームの色付けは日程だけで使う（markFav: true）
+// チーム名を押すとチームの画面を開く（行やカードを押したときの動きとは別にするため、押したときは止める）
+function teamPress(id) {
+  return id && state.data?.teams?.[id] ? pressable(e => { e.stopPropagation(); actions.openTeam(id); }) : {};
+}
+
 export function teamTag(id, { markFav = false } = {}) {
-  return h("span", { class: "team-tag" + (markFav && id === state.fav ? " is-fav" : "") }, teamShort(id));
+  return h("span", { class: "team-tag" + (markFav && id === state.fav ? " is-fav" : ""), ...teamPress(id) }, teamShort(id));
+}
+
+// 小さい文字のチーム名（選手名の横など）。押せることが分かるよう下線を付ける
+export function teamLink(id, cls = "") {
+  return h("small", { class: `${cls} tlink`.trim(), ...teamPress(id) }, teamShort(id));
 }
 
 // m を渡すと、対局中の卓は「第1回戦 対局中」のように何回戦かも出す（終わった半荘の数＋1）
@@ -43,7 +53,7 @@ export function gameBlock(g, { markFav = false } = {}) {
       const team = teamOfPlayer(r.name);
       return h("div", { class: "grow" },
         h("span", { class: "grow__rank" + (r.rank === 1 ? " r1" : "") }, r.rank),
-        h("span", { class: "grow__name" }, playerLink(r.name), h("small", { class: markFav && team === state.fav ? "is-fav" : null }, teamShort(team))),
+        h("span", { class: "grow__name" }, playerLink(r.name), teamLink(team, markFav && team === state.fav ? "is-fav" : "")),
         h("span", { class: "grow__pt " + ptClass(r.point) }, pt(r.point)));
     }));
 }
@@ -100,7 +110,7 @@ export function asOfLine() {
 // 役満1件（結果タブの一覧用）。markFav: 推しチームが関わったもの（アガリ・放銃）を緑に
 export function yakumanCard(y, { markFav = false } = {}) {
   const fav = markFav && state.fav && (y.winnerTeam === state.fav || y.loserTeam === state.fav);
-  const team = t => h("small", { class: "yk__team" + (markFav && t === state.fav ? " is-fav" : "") }, teamShort(t));
+  const team = t => teamLink(t, "yk__team" + (markFav && t === state.fav ? " is-fav" : ""));
   return h("section", { class: "card yk" + (fav ? " is-fav" : "") },
     h("div", { class: "yk__head" }, h("span", { class: "yk__name" }, y.yaku),
       h("span", { class: "yk__meta" }, `${y.date.replaceAll("-", "/")}　${STAGE_NAME[y.stage] ?? y.stage}`)),

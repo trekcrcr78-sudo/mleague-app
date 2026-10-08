@@ -442,3 +442,8 @@ button { font: inherit; color: inherit; }
 .team-ranks th, .team-ranks td { padding-left: 5px; padding-right: 5px; }
 .team-ranks th:first-child, .team-ranks td:first-child { padding-left: 12px; }
 .team-ranks th:last-child, .team-ranks td:last-child { padding-right: 12px; }
+
+/* 押すとチームの画面が開くチーム名 */
+.team-tag[role="button"], .tlink[role="button"] { cursor: pointer; }
+.tlink[role="button"] { text-decoration: underline; text-decoration-color: var(--axis); text-underline-offset: 2px; }
+.tlink[role="button"]:hover { text-decoration-color: currentColor; }

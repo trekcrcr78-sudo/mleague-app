@@ -1,7 +1,7 @@
 // 下から出てくる詳細シート（試合・選手・チーム）
 
 import { actions } from "./actions.js";
-import { asOfLine, awardValue, gameBlock, note, playerLink, resultCard, sourceNote, stat, teamTag, titleBadges } from "./components.js";
+import { asOfLine, awardValue, gameBlock, note, playerLink, resultCard, sourceNote, stat, teamLink, teamTag, titleBadges } from "./components.js";
 import { $, h, pressable, segmented } from "./dom.js";
 import { dayLabel, dec2, int, pct, pt, ptClass } from "./format.js";
 import { aggregate, allMatches, currentPlayer, isActive, playerLog, postseasonRows, seasonRows, STAGE_NAME, teamCareerRows, teamName, teamOfPlayer, teamPostRows, teamSeasonRanks, teamShort, teamTotal, titlesOf, yakumanOf } from "./model.js";
@@ -98,7 +98,7 @@ function playerCareer(name, team, rows, tabs, highlight) {
       h("thead", {}, h("tr", {}, h("th", {}, "シーズン"), h("th", {}, "ポイント"), h("th", {}, "半荘"), h("th", {}, "トップ"), h("th", {}, "4着回避"))),
       h("tbody", {}, rows.map(r => h("tr", { class: (r.current ? "is-current" : "") + (r.season === highlight ? " is-highlight" : "") },
         h("td", {}, h("div", { class: "career__season" }, r.season, r.current ? h("span", { class: "badge badge--next" }, "今季") : null),
-          h("div", { class: "career__team" }, teamShort(r.team)),
+          h("div", { class: "career__team" }, teamLink(r.team)),
           (seasonTitles => seasonTitles.length ? h("div", { class: "career__titles" }, titleBadges(seasonTitles)) : null)(titles.filter(t => t.season === r.season).map(t => t.award))),
         h("td", {}, h("div", { class: "career__pts " + ptClass(r.points) }, pt(r.points)),
           h("div", { class: "bar" }, h("span", { class: "bar__fill " + (r.points < 0 ? "is-neg" : "is-pos"), style: `width:${(Math.abs(r.points || 0) / maxAbs * 100).toFixed(1)}%` }))),
