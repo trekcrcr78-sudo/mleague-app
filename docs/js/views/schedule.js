@@ -2,7 +2,7 @@ import { actions } from "../actions.js";
 import { sectionTitle, statusBadge, teamTag, note, watchButton } from "../components.js";
 import { h, pressable } from "../dom.js";
 import { DOW, dayLabel, dowOf, mdLabel, pt, ptClass, todayStr } from "../format.js";
-import { allMatches, borderDiffs, favSummary, matchStatus, tableNo, teamShort } from "../model.js";
+import { allMatches, borderDiffs, borderRace, favSummary, matchStatus, tableNo, teamShort } from "../model.js";
 import { set, state } from "../store.js";
 
 
@@ -41,11 +41,21 @@ function favSummaryCard(team) {
     h("div", { class: "favsum__head" }, h("span", { class: "favsum__name" }, teamShort(team)), h("span", { class: "favsum__more" }, "チーム詳細 ›")),
     h("div", { class: "favsum__nums" },
       num("順位", `${st.rank}位`), num("ポイント", pt(st.points), ptClass(st.points)), num("ボーダー", signed(border), ptClass(border))),
+    raceLine(team),
     matchBox,
     s.recent.length ? h("div", { class: "favsum__form" + (n === 10 ? " is-10" : "") },
       h("div", { class: "favsum__label" }, h("span", {}, `直近${s.recent.length}半荘の着順（新しい→古い）`), recentToggle(n)),
       h("div", { class: "favsum__dots" }, s.recent.map((r, i) => h("span", { class: "favsum__dot" + (r === 1 ? " r1" : "") + (i === 0 ? " is-latest" : "") }, r))),
       n === 10 ? recentBreakdown(s.recent) : null) : null);
+}
+
+// セミファイナル争いの1行（詳しくはチームの画面）
+function raceLine(team) {
+  const b = borderRace(team);
+  if (!b) return null;
+  return h("div", { class: "favsum__race" }, b.inside
+    ? `6位以内キープ：1半荘平均 ${pt(b.pace)} まで`
+    : `6位まで：1半荘平均 +${b.pace.toFixed(1)} 必要`);
 }
 
 // 5／10 半荘の切り替え（カードのタップでチーム詳細が開かないよう、押したときは止める）

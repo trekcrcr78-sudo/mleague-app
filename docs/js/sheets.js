@@ -4,7 +4,7 @@ import { actions } from "./actions.js";
 import { asOfLine, awardValue, gameBlock, note, playerLink, resultCard, sourceNote, stat, teamLink, teamTag, titleBadges } from "./components.js";
 import { $, h, pressable, segmented } from "./dom.js";
 import { dayLabel, dec2, int, pct, pt, ptClass } from "./format.js";
-import { aggregate, allMatches, currentPlayer, isActive, playerLog, postseasonRows, seasonRows, STAGE_NAME, teamCareerRows, teamName, teamOfPlayer, teamPostRows, teamSeasonRanks, teamShort, teamTotal, titlesOf, yakumanOf } from "./model.js";
+import { aggregate, allMatches, currentPlayer, isActive, playerLog, postseasonRows, seasonRows, STAGE_NAME, borderRace, teamCareerRows, teamName, teamOfPlayer, teamPostRows, teamSeasonRanks, teamShort, teamTotal, titlesOf, yakumanOf } from "./model.js";
 import { set, setFav, state } from "./store.js";
 
 let current = null; // 開いているシートの描画関数（データ更新時に描き直す）
@@ -185,6 +185,7 @@ function teamSeason(t, favBtn, tabs) {
     hero(teamName(t), row ? `${row.rank}位・${row.games}/${row.totalGames}試合` : "", row?.points, "ポイント"),
     favBtn,
     tabs,
+    borderRaceCard(t),
     h("h3", { class: "section-title" }, ranks ? `今季の着順（${dayLabel(ranks.asOf)}の試合結果まで）` : "今季の着順"),
     ranks ? rankStats(ranks) : h("p", { class: "empty" }, "まだ対局がありません"),
     h("h3", { class: "section-title" }, "所属選手"),
@@ -193,6 +194,25 @@ function teamSeason(t, favBtn, tabs) {
       h("div", {}, h("div", { class: "prow__name" }, p.name), h("div", { class: "prow__meta" }, `${int(p.games)}試合・平均着順 ${dec2(p.avgRank)}`)),
       h("div", { class: "prow__val " + ptClass(p.points) }, pt(p.points)))))),
     recent.length ? [h("h3", { class: "section-title" }, "直近の試合"), recent.map(m => resultCard(m))] : null,
+  ];
+}
+
+// セミファイナル争い（6位以内の進出ライン）
+function borderRaceCard(t) {
+  const b = borderRace(t);
+  if (!b) return null;
+  const signed = v => v > 0 ? `+${v.toFixed(1)}` : pt(v);
+  return [
+    h("h3", { class: "section-title" }, "セミファイナル争い（6位以内が進出）"),
+    h("section", { class: "card race" },
+      h("div", { class: "race__row" },
+        h("span", {}, `${b.rank}位・${b.rivalRank}位 ${teamShort(b.rival)} との差`), h("b", { class: ptClass(b.diff) }, signed(b.diff))),
+      h("div", { class: "race__row" }, h("span", {}, "残り"), h("b", {}, `${b.remaining}半荘`)),
+      h("div", { class: "race__pace" },
+        b.inside
+          ? [h("span", {}, "1半荘平均 "), h("b", { class: b.pace < 0 ? "neg" : "" }, pt(b.pace)), h("span", {}, " までなら6位以内を守れる計算")]
+          : [h("span", {}, "1半荘平均 "), h("b", { class: "pos" }, `+${b.pace.toFixed(1)}`), h("span", {}, " で6位に届く計算")]),
+      h("div", { class: "race__note" }, `（${b.inside ? "7位" : "6位"}がこの先±0で進んだ場合）`)),
   ];
 }
 

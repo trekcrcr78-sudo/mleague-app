@@ -269,6 +269,21 @@ export function borderDiffs() {
   return Object.fromEntries(rows.map(r => [r.team, round1(r.rank <= SEMIFINAL_SPOTS ? r.points - p7 : r.points - p6)]));
 }
 
+// セミファイナル争い（レギュラーシーズン中だけ）。相手チームが残りを±0で進んだ場合の1半荘平均の目安
+//   6位以内: 7位に抜かれないために、1半荘平均いくつまで負けてよいか（pace は負の数）
+//   7位以下: 6位に追いつくために、1半荘平均いくつ必要か（pace は正の数）
+export function borderRace(team) {
+  if (state.data.regularComplete) return null;
+  const rows = [...state.data.standings].sort((a, b) => a.rank - b.rank);
+  const me = rows.find(r => r.team === team);
+  const inside = me && me.rank <= SEMIFINAL_SPOTS;
+  const rival = rows[inside ? SEMIFINAL_SPOTS : SEMIFINAL_SPOTS - 1];
+  const remaining = me ? me.totalGames - me.games : 0;
+  if (!me || !rival || remaining <= 0) return null;
+  const diff = round1(me.points - rival.points);
+  return { inside, rank: me.rank, rival: rival.team, rivalRank: rival.rank, diff, remaining, pace: -diff / remaining };
+}
+
 // 各チームの今季の着順回数（試合結果から数える）
 export function teamPlacements() {
   const out = {};
