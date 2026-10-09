@@ -46,7 +46,7 @@ function rankList(rows, sort, { meta, onOpen, badges = () => null }) {
     if (r.v[sort.k] !== prev) { rank = i + 1; prev = r.v[sort.k]; }
     return h("li", { class: "prow", ...pressable(() => onOpen(r.name)) },
       h("span", { class: "prow__rank" }, rank),
-      h("div", {}, h("div", { class: "prow__name" }, r.name, titleBadges(badges(r))), h("div", { class: "prow__meta" }, teamTag(r.team), meta(r))),
+      h("div", {}, h("div", { class: "prow__name" }, r.name, titleBadges(badges(r))), h("div", { class: "prow__meta" }, teamTag(r.team, { markFav: state.colorPlayersFav }), meta(r))),
       h("div", { class: "prow__val " + (sort.k === "points" ? ptClass(r.v.points) : "") }, sort.fmt(r.v[sort.k]),
         sort.k !== "points" ? h("small", { class: ptClass(r.v.points) }, pt(r.v.points) + "pt") : null));
   })));
@@ -114,7 +114,7 @@ function yakumanView(team) {
   const summary = Object.entries(counts).sort((a, b) => b[1] - a[1]);
   return [
     summary.length ? h("div", { class: "yk-sum" }, summary.map(([yaku, n]) => h("div", {}, h("b", {}, n), h("span", {}, yaku)))) : null,
-    rows.length ? rows.map(r => yakumanCard(r)) : h("p", { class: "empty" }, "該当する役満はありません"),
+    rows.length ? rows.map(r => yakumanCard(r, { markFav: state.colorPlayersFav })) : h("p", { class: "empty" }, "該当する役満はありません"),
     note(team === "all"
       ? "Mリーグ公式戦（レギュラー・セミファイナル・ファイナル）で出た役満です。"
       : `${teamShort(team)}の選手がアガった、または放銃した役満です（チームは当時の所属）。`),

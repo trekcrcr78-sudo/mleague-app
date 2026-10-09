@@ -270,6 +270,10 @@ function openFavPicker() {
       h("span", {}, h("b", {}, "セミファイナル争いを表示"), h("small", {}, "6位以内に必要な1半荘平均の目安（チームの画面・まとめ）")),
       h("input", { type: "checkbox", role: "switch", checked: state.showBorderRace ? true : null,
         onchange: e => { set({ showBorderRace: e.target.checked }); redrawSheet(); } })),
+    h("label", { class: "switch-row" },
+      h("span", {}, h("b", {}, "個人成績でも推しチームを色付け"), h("small", {}, "選手一覧のチーム名と役満を緑で表示")),
+      h("input", { type: "checkbox", role: "switch", checked: state.colorPlayersFav ? true : null,
+        onchange: e => { set({ colorPlayersFav: e.target.checked }); redrawSheet(); } })),
   ]);
 }
 
