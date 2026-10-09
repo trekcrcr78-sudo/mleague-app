@@ -6,6 +6,15 @@ import { jstNow, mdLabel, round1, todayStr } from "./format.js";
 export function teamShort(id) { return state.data.teams[id]?.short ?? id ?? ""; }
 export function teamName(id) { return state.data.teams[id]?.name ?? id ?? ""; }
 
+// 推しチームを先頭に（残りは元の並びのまま）。絞り込みボタン・グラフのチームボタン・日程の卓で使う
+export function favFirst(teams) {
+  return state.fav && teams.includes(state.fav) ? [state.fav, ...teams.filter(t => t !== state.fav)] : teams;
+}
+// 現在の順位順のチーム（推しチームが先頭）
+export function teamsForPicking() {
+  return favFirst(state.data.standings.map(r => r.team));
+}
+
 export function allMatches() {
   const byMonth = state.data.matchesByMonth;
   return Object.keys(byMonth).sort().flatMap(k => byMonth[k]);

@@ -4,7 +4,7 @@ import { actions } from "../actions.js";
 import { asOfLine, note, sourceNote, teamTag, titleBadges } from "../components.js";
 import { chipRow, h, pressable } from "../dom.js";
 import { dec2, int, pct, pt, ptClass } from "../format.js";
-import { careerOf, isActive, pastSeasons, rosterNames, seasonTable, teamOfPlayer, teamShort, titlesInSeason } from "../model.js";
+import { careerOf, isActive, teamsForPicking, pastSeasons, rosterNames, seasonTable, teamOfPlayer, teamShort, titlesInSeason } from "../model.js";
 import { setPlayers, state } from "../store.js";
 
 // 今季: 公式の成績ページと同じ項目
@@ -92,7 +92,7 @@ export function viewPlayers() {
     scope === "past" ? chipRow(seasons.map(s => [s, s]), pastSeason, v => setPlayers({ pastSeason: v })) : null,
     scope !== "season" ? chipRow([["all", "全選手"], ["active", "現役のみ"]], ps.who === "active" ? "active" : "all", v => setPlayers({ who: v })) : null,
     chipRow(sorts.map(x => [x.k, x.label]), sort.k, v => setPlayers({ sort: v })),
-    chipRow([["all", "全チーム"], ...state.data.standings.map(r => [r.team, teamShort(r.team)])], ps.team, v => setPlayers({ team: v })));
+    chipRow([["all", "全チーム"], ...teamsForPicking().map(t => [t, teamShort(t)])], ps.team, v => setPlayers({ team: v })));
 
   return [controls,
     scope !== "past" ? asOfLine() : null,

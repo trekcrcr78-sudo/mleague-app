@@ -2,7 +2,7 @@
 
 import { $, h, s } from "./dom.js";
 import { DOW, dowOf, pt } from "./format.js";
-import { chartSelection, progression, teamShort } from "./model.js";
+import { chartSelection, progression, teamsForPicking, teamShort } from "./model.js";
 import { set, state } from "./store.js";
 
 export function hideTooltip() { const t = $("#tooltip"); if (t) t.hidden = true; }
@@ -26,11 +26,11 @@ export function drawProgression(wrap, legend) {
   const color = t => `var(--series-${sel.indexOf(t) + 1})`;
   const teams = Object.keys(state.data.teams);
 
-  // 凡例（色はチームごとに選んだ順で固定、並びは現在順位）
-  legend.replaceChildren(...state.data.standings.map(r => {
-    const on = sel.includes(r.team);
-    return h("button", { class: "chip", type: "button", "aria-pressed": String(on), onclick: () => toggleTeam(r.team) },
-      h("span", { class: "key", style: on ? `background:${color(r.team)}` : null }), teamShort(r.team));
+  // 凡例（色はチームごとに選んだ順で固定、並びは推しチームが先頭で残りは現在順位）
+  legend.replaceChildren(...teamsForPicking().map(t => {
+    const on = sel.includes(t);
+    return h("button", { class: "chip", type: "button", "aria-pressed": String(on), onclick: () => toggleTeam(t) },
+      h("span", { class: "key", style: on ? `background:${color(t)}` : null }), teamShort(t));
   }));
 
   const W = Math.max(280, wrap.clientWidth), H = Math.round(Math.min(340, Math.max(220, W * 0.55)));

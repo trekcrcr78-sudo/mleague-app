@@ -2,7 +2,7 @@
 import { gameBlock, note, sourceNote, statusBadge, yakumanCard } from "../components.js";
 import { chipRow, h } from "../dom.js";
 import { dayLabel, jstNow, todayStr } from "../format.js";
-import { allMatches, matchStatus, tableNo, teamShort, yakumanRows } from "../model.js";
+import { allMatches, matchStatus, tableNo, teamsForPicking, teamShort, yakumanRows } from "../model.js";
 import { set, state } from "../store.js";
 
 export function viewResults() {
@@ -10,7 +10,7 @@ export function viewResults() {
   const team = state.resultTeam;
   const controls = [
     chipRow([["results", "試合結果"], ["yakuman", "役満"]], view, v => set({ resultView: v })),
-    chipRow([["all", "全チーム"], ...state.data.standings.map(r => [r.team, teamShort(r.team)])], team, v => set({ resultTeam: v })),
+    chipRow([["all", "全チーム"], ...teamsForPicking().map(t => [t, teamShort(t)])], team, v => set({ resultTeam: v })),
   ];
   if (view === "yakuman") return [controls, yakumanView(team)];
   const matches = allMatches();

@@ -2,7 +2,7 @@ import { actions } from "../actions.js";
 import { sectionTitle, statusBadge, teamTag, note, watchButton } from "../components.js";
 import { h, pressable } from "../dom.js";
 import { DOW, dayLabel, dowOf, mdLabel, pt, ptClass, todayStr } from "../format.js";
-import { allMatches, borderDiffs, borderRace, favSummary, matchStatus, tableNo, teamShort } from "../model.js";
+import { allMatches, borderDiffs, borderRace, favFirst, favSummary, matchStatus, tableNo, teamShort } from "../model.js";
 import { set, state } from "../store.js";
 
 
@@ -13,7 +13,7 @@ function matchRow(m, tablesThatDay) {
     h("div", { class: "match__head" },
       tablesThatDay > 1 ? h("span", { class: "match__table" }, `${tableNo(m)}卓目`) : null,
       h("span", { class: "match__status" }, statusBadge(matchStatus(m), m))),
-    h("div", { class: "match__teams" }, m.teams.map(t => teamTag(t, { markFav: true }))),
+    h("div", { class: "match__teams" }, favFirst(m.teams).map(t => teamTag(t, { markFav: true }))),
     watchButton(m));
 }
 
