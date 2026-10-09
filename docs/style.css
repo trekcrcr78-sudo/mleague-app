@@ -458,3 +458,7 @@ button { font: inherit; color: inherit; }
 .race__pace b.pos { color: var(--pos); } .race__pace b.neg { color: var(--neg); }
 .race__note { margin-top: 2px; font-size: 11.5px; color: var(--muted); }
 .favsum__race { margin-top: 6px; font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+.rtable.is-pending { border-style: dashed; background: none; }
+.rtable.is-pending.is-fav { border-color: var(--accent); }
+.rtable__wait { padding: 8px 0 10px; text-align: center; font-size: 13px; font-weight: 650; color: var(--muted); }
