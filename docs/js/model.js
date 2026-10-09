@@ -391,9 +391,13 @@ export function favSummary(team, recentCount = 5) {
   const match = mine.find(m => m.date === today) ?? mine.find(m => m.date > today && !m.finished) ?? null;
   const tablesThatDay = match ? matches.filter(m => m.date === match.date).length : 0;
   const recent = [];
+  let last = null;   // 着順に入っている最後の半荘 { date, no }
   for (const m of mine) for (const g of [...m.games].sort((a, b) => a.no - b.no)) {
     const r = g.results.find(x => teamOfPlayer(x.name) === team);
-    if (r) recent.push(r.rank);
+    if (r) { recent.push(r.rank); last = { date: m.date, no: g.no }; }
   }
-  return { match, isToday: match?.date === today, tablesThatDay, recent: recent.slice(-recentCount).reverse() };
+  // 対局が始まっている（19時以降）のに結果がまだ載っていない日
+  const begun = d => d < today || (d === today && jstNow().getUTCHours() >= 19);
+  const waiting = mine.find(m => !m.games.length && begun(m.date) && (!last || m.date > last.date))?.date ?? null;
+  return { match, isToday: match?.date === today, tablesThatDay, recent: recent.slice(-recentCount).reverse(), last, waiting };
 }

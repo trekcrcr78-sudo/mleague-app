@@ -46,7 +46,8 @@ function favSummaryCard(team) {
     s.recent.length ? h("div", { class: "favsum__form" + (n === 10 ? " is-10" : "") },
       h("div", { class: "favsum__label" }, h("span", {}, `直近${s.recent.length}半荘の着順（新しい→古い）`), recentToggle(n)),
       h("div", { class: "favsum__dots" }, s.recent.map((r, i) => h("span", { class: "favsum__dot" + (r === 1 ? " r1" : "") + (i === 0 ? " is-latest" : "") }, r))),
-      n === 10 ? recentBreakdown(s.recent) : null) : null);
+      n === 10 ? recentBreakdown(s.recent) : null,
+      recentAsOf(s)) : null);
 }
 
 // セミファイナル争いの1行（詳しくはチームの画面）
@@ -64,6 +65,14 @@ function recentToggle(n) {
     [5, 10].map(v => h("button", { type: "button", "aria-pressed": String(v === n),
       onclick: e => { e.stopPropagation(); set({ favRecent: v }); },
       onkeydown: e => e.stopPropagation() }, v)));
+}
+
+// 着順がどの試合まで入っているか（例: 「10/8（木）第2回戦まで反映・10/9（金）の対局は結果待ち」）
+function recentAsOf(s) {
+  if (!s.last) return null;
+  const parts = [`${dayLabel(s.last.date)}第${s.last.no}回戦まで反映`];
+  if (s.waiting) parts.push(`${dayLabel(s.waiting)}の対局は結果待ち`);
+  return h("div", { class: "favsum__asof" }, parts.join("・"));
 }
 
 function recentBreakdown(recent) {
