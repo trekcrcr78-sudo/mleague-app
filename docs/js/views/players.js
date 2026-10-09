@@ -1,10 +1,10 @@
-// 個人成績タブ: 今季・シーズン別・通算（いずれもレギュラーシーズン）のランキング
+// 個人成績タブ: 今季・シーズン別・通算（いずれもレギュラーシーズン）のランキングと、役満の一覧
 
 import { actions } from "../actions.js";
-import { asOfLine, note, sourceNote, teamTag, titleBadges } from "../components.js";
+import { asOfLine, note, sourceNote, teamTag, titleBadges, yakumanCard } from "../components.js";
 import { chipRow, h, pressable } from "../dom.js";
 import { dec2, int, pct, pt, ptClass } from "../format.js";
-import { careerOf, isActive, teamsForPicking, pastSeasons, rosterNames, seasonTable, teamOfPlayer, teamShort, titlesInSeason } from "../model.js";
+import { careerOf, isActive, teamsForPicking, pastSeasons, rosterNames, seasonTable, teamOfPlayer, teamShort, titlesInSeason, yakumanRows } from "../model.js";
 import { setPlayers, state } from "../store.js";
 
 // 今季: 公式の成績ページと同じ項目
@@ -56,7 +56,12 @@ const available = (rows, sorts) => sorts.filter(s => rows.some(r => r.v[s.k] != 
 
 export function viewPlayers() {
   const ps = state.players;
-  const scope = ["season", "past", "career"].includes(ps.scope) ? ps.scope : "season";
+  const scope = ["season", "past", "career", "yakuman"].includes(ps.scope) ? ps.scope : "season";
+  const scopeChips = chipRow([["season", `今季（${state.data.season}）`], ["past", "シーズン別"], ["career", "通算"], ["yakuman", "役満"]], scope,
+    v => setPlayers({ scope: v, sort: "points" }));
+  const teamChips = chipRow([["all", "全チーム"], ...teamsForPicking().map(t => [t, teamShort(t)])], ps.team, v => setPlayers({ team: v }));
+  // 役満: 並べ替えと「全選手／現役のみ」は出さず、チームの絞り込みだけ
+  if (scope === "yakuman") return [h("div", { class: "controls" }, scopeChips, teamChips), yakumanView(ps.team)];
   const seasons = pastSeasons();
   const pastSeason = seasons.includes(ps.pastSeason) ? ps.pastSeason : seasons[0];
   const byTeam = r => ps.team === "all" || r.team === ps.team;
@@ -88,14 +93,31 @@ export function viewPlayers() {
   rows = rows.filter(byTeam);
 
   const controls = h("div", { class: "controls" },
-    chipRow([["season", `今季（${state.data.season}）`], ["past", "シーズン別"], ["career", "通算"]], scope, v => setPlayers({ scope: v, sort: "points" })),
+    scopeChips,
     scope === "past" ? chipRow(seasons.map(s => [s, s]), pastSeason, v => setPlayers({ pastSeason: v })) : null,
     scope !== "season" ? chipRow([["all", "全選手"], ["active", "現役のみ"]], ps.who === "active" ? "active" : "all", v => setPlayers({ who: v })) : null,
     chipRow(sorts.map(x => [x.k, x.label]), sort.k, v => setPlayers({ sort: v })),
-    chipRow([["all", "全チーム"], ...teamsForPicking().map(t => [t, teamShort(t)])], ps.team, v => setPlayers({ team: v })));
+    teamChips);
 
   return [controls,
     scope !== "past" ? asOfLine() : null,
     rows.length ? rankList(rows, sort, { meta, onOpen, badges }) : h("p", { class: "empty" }, "該当する選手がいません"),
     notes];
+}
+
+// 役満の一覧（種類ごとの数と、新しい順のカード）。team で絞り込むと、その選手がアガった・放銃したもの
+function yakumanView(team) {
+  let rows = yakumanRows();
+  if (team !== "all") rows = rows.filter(r => r.winnerTeam === team || r.loserTeam === team);
+  const counts = {};
+  for (const r of rows) counts[r.yaku] = (counts[r.yaku] || 0) + 1;
+  const summary = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  return [
+    summary.length ? h("div", { class: "yk-sum" }, summary.map(([yaku, n]) => h("div", {}, h("b", {}, n), h("span", {}, yaku)))) : null,
+    rows.length ? rows.map(r => yakumanCard(r, { markFav: true })) : h("p", { class: "empty" }, "該当する役満はありません"),
+    note(team === "all"
+      ? "Mリーグ公式戦（レギュラー・セミファイナル・ファイナル）で出た役満です。"
+      : `${teamShort(team)}の選手がアガった、または放銃した役満です（チームは当時の所属）。`),
+    sourceNote(["yakuman"]),
+  ];
 }
