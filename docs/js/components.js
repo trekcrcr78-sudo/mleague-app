@@ -107,7 +107,7 @@ export function asOfLine() {
     pending && !done ? h("span", { class: "asof__sub" }, `${dayLabel(pending)}の分は、その日の全試合が公式に反映されてからまとめて更新します`) : null);
 }
 
-// 役満1件（結果タブの一覧用）。markFav: 推しチームが関わったもの（アガリ・放銃）を緑に
+// 役満1件（個人成績タブの役満の一覧用。推しチームの色付けはしない）。markFav: 推しチームが関わったもの（アガリ・放銃）を緑に
 export function yakumanCard(y, { markFav = false } = {}) {
   const fav = markFav && state.fav && (y.winnerTeam === state.fav || y.loserTeam === state.fav);
   const team = t => teamLink(t, "yk__team" + (markFav && t === state.fav ? " is-fav" : ""));

@@ -114,7 +114,7 @@ function yakumanView(team) {
   const summary = Object.entries(counts).sort((a, b) => b[1] - a[1]);
   return [
     summary.length ? h("div", { class: "yk-sum" }, summary.map(([yaku, n]) => h("div", {}, h("b", {}, n), h("span", {}, yaku)))) : null,
-    rows.length ? rows.map(r => yakumanCard(r, { markFav: true })) : h("p", { class: "empty" }, "該当する役満はありません"),
+    rows.length ? rows.map(r => yakumanCard(r)) : h("p", { class: "empty" }, "該当する役満はありません"),
     note(team === "all"
       ? "Mリーグ公式戦（レギュラー・セミファイナル・ファイナル）で出た役満です。"
       : `${teamShort(team)}の選手がアガった、または放銃した役満です（チームは当時の所属）。`),
