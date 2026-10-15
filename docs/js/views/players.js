@@ -10,7 +10,9 @@ import { setPlayers, state } from "../store.js";
 // 今季: 公式の成績ページと同じ項目
 const SEASON_SORTS = [
   { k: "points", label: "ポイント", fmt: pt, desc: true },
+  { k: "perGame", label: "1半荘平均", fmt: pt, desc: true },
   { k: "avgRank", label: "平均着順", fmt: dec2, desc: false },
+  { k: "r1", label: "トップ数", fmt: v => v == null ? "–" : `${int(v)}回`, desc: true },
   { k: "topRate", label: "トップ率", fmt: pct, desc: true },
   { k: "lastAvoidRate", label: "ラス回避率", fmt: pct, desc: true },
   { k: "rentaiRate", label: "連対率", fmt: pct, desc: true },
@@ -58,7 +60,7 @@ export function viewPlayers() {
   const ps = state.players;
   const scope = ["season", "past", "career", "yakuman"].includes(ps.scope) ? ps.scope : "season";
   const scopeChips = chipRow([["season", `今季（${state.data.season}）`], ["past", "シーズン別"], ["career", "通算"], ["yakuman", "役満"]], scope,
-    v => setPlayers({ scope: v, sort: "points" }));
+    v => setPlayers({ scope: v }));
   const teamChips = chipRow([["all", "全チーム"], ...teamsForPicking().map(t => [t, teamShort(t)])], ps.team, v => setPlayers({ team: v }));
   // 役満: 並べ替えと「全選手／現役のみ」は出さず、チームの絞り込みだけ
   if (scope === "yakuman") return [h("div", { class: "controls" }, scopeChips, teamChips), yakumanView(ps.team)];
@@ -69,7 +71,7 @@ export function viewPlayers() {
 
   let rows, sorts, meta, onOpen, notes, badges;
   if (scope === "season") {
-    rows = state.data.players.filter(p => p.games > 0).map(p => ({ name: p.name, team: p.team, v: p }));
+    rows = state.data.players.filter(p => p.games > 0).map(p => ({ name: p.name, team: p.team, v: { ...p, perGame: p.points / p.games } }));
     sorts = SEASON_SORTS;
     meta = r => `${int(r.v.games)}試合`;
     onOpen = name => actions.openPlayer(name, { view: "season" });
