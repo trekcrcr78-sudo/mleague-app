@@ -22,6 +22,7 @@ const SEASON_SORTS = [
   { k: "dealInRate", label: "放銃率", fmt: pct, desc: false },
   { k: "riichiRate", label: "リーチ率", fmt: pct, desc: true },
   { k: "furoRate", label: "副露率", fmt: pct, desc: true },
+  { k: "games", label: "半荘数", fmt: int, desc: true },
 ];
 // シーズン別・通算: シーズンによって公開されている項目が違うので、データのある項目だけ出す
 const HISTORY_SORTS = [
