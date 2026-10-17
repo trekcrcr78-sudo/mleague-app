@@ -210,10 +210,12 @@ button { font: inherit; color: inherit; }
 .chart .endlabel { font-size: 11px; font-weight: 700; fill: var(--ink); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; }
 .chart .cross { stroke: var(--ink-2); stroke-width: 1; stroke-dasharray: 2 3; }
 .chart .dot { stroke: var(--surface); stroke-width: 2; }
-.legend { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 8px 6px 12px; }
-.legend .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; font-size: 12px; }
-.legend .chip[aria-pressed="true"] { background: var(--surface); color: var(--ink); border-color: var(--ink-2); }
-.legend .key { width: 14px; height: 3px; border-radius: 2px; background: var(--series-rest); }
+.legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 6px 8px 6px 12px; }
+.legend__btn { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 7px 8px; border: 1px solid var(--line); border-radius: 9px; background: none; color: var(--muted); font-size: 12px; font-weight: 650; cursor: pointer; text-align: left; }
+.legend__btn[aria-pressed="true"] { background: var(--surface-2); color: var(--ink); border-color: var(--ink-2); }
+.legend__rank { min-width: 1.3em; font-variant-numeric: tabular-nums; font-size: 11px; color: var(--muted); }
+.legend__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.legend .key { flex: none; width: 12px; height: 3px; border-radius: 2px; }
 
 .tooltip {
   position: fixed; z-index: 40; pointer-events: none; min-width: 150px;

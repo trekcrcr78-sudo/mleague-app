@@ -14,6 +14,13 @@ function toggleTeam(t) {
   set({ chartTeams: sel });
 }
 
+let measureCtx;
+function textWidth(str) {
+  measureCtx ??= document.createElement("canvas").getContext("2d");
+  measureCtx.font = `700 11px ${getComputedStyle(document.body).fontFamily}`;
+  return measureCtx.measureText(str).width;
+}
+
 function niceStep(raw) {
   const p = Math.pow(10, Math.floor(Math.log10(raw)));
   const f = raw / p;
@@ -26,15 +33,19 @@ export function drawProgression(wrap, legend) {
   const color = t => `var(--series-${sel.indexOf(t) + 1})`;
   const teams = Object.keys(state.data.teams);
 
-  // 凡例（色はチームごとに選んだ順で固定、並びは推しチームが先頭で残りは現在順位）
+  // 凡例: 2列のマス目に同じ形のボタン（色はチームごとに選んだ順で固定、並びは推しチームが先頭で残りは現在順位）
+  const rankOf = Object.fromEntries(state.data.standings.map(r => [r.team, r.rank]));
   legend.replaceChildren(...teamsForPicking().map(t => {
     const on = sel.includes(t);
-    return h("button", { class: "chip", type: "button", "aria-pressed": String(on), onclick: () => toggleTeam(t) },
-      h("span", { class: "key", style: on ? `background:${color(t)}` : null }), teamShort(t));
+    return h("button", { class: "legend__btn", type: "button", "aria-pressed": String(on), onclick: () => toggleTeam(t) },
+      h("span", { class: "legend__rank" }, rankOf[t] ?? ""), h("span", { class: "legend__name" }, teamShort(t)),
+      on ? h("span", { class: "key", style: `background:${color(t)}` }) : null);
   }));
 
   const W = Math.max(280, wrap.clientWidth), H = Math.round(Math.min(340, Math.max(220, W * 0.55)));
-  const m = { t: 12, r: 64, b: 24, l: 40 };
+  // 右の余白は、右端に出すチーム名の長さに合わせる（「麻雀格闘倶楽部」が切れないように）
+  const labelW = Math.max(0, ...sel.map(t => textWidth(teamShort(t))));
+  const m = { t: 12, r: Math.max(48, Math.ceil(labelW) + 14), b: 24, l: 40 };
   const all = pts.flatMap(p => Object.values(p.values));
   let lo = Math.min(0, ...all), hi = Math.max(0, ...all);
   const step = niceStep((hi - lo) / 4 || 10);
@@ -51,6 +62,7 @@ export function drawProgression(wrap, legend) {
   const every = Math.max(1, Math.ceil(n / Math.floor((W - m.l - m.r) / 44)));
   pts.forEach((p, i) => {
     if (i % every && i !== n - 1) return;
+    if (i !== n - 1 && x(n - 1) - x(i) < 40) return;   // 最後の日付と重なるものは出さない
     svg.append(s("text", { class: "tick", x: x(i), y: H - 6, "text-anchor": i === 0 ? "start" : "middle" }, p.label));
   });
   const path = t => pts.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.values[t]).toFixed(1)}`).join("");
