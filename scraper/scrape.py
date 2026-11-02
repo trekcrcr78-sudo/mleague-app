@@ -190,9 +190,15 @@ def scrape_current(now, full, old):
     standings = parse_standings(top)
     season = season_label(months[0][0] if months else now.year)
     old_std = old.get("standings") or []
-    # （同じシーズン・同じステージ＝予定試合数が同じときだけ。セミファイナル開始などで試合数が数え直されたときは除く）
+    # 公式の順位表がおかしいときは前回の順位表のまま使う（メンテナンス中に空や古い順位表が返ってきたことがある）
+    #  - 空、またはチームが欠けている
+    #  - 試合数の合計が前回より減っている（同じシーズン・同じステージ＝予定試合数が同じときだけ。
+    #    セミファイナル開始などで試合数が数え直されたときは除く）
     same_stage = sorted(r["totalGames"] for r in standings) == sorted(r.get("totalGames") for r in old_std)
-    if old.get("season") == season and old_std and same_stage and sum(r["games"] for r in standings) < sum(r["games"] for r in old_std):
+    if old_std and old.get("season") == season and len(standings) < len(old_std):
+        print(f"standings: 公式の順位表が{len(standings)}チームしかないので、前回の順位表のままにします")
+        standings = old_std
+    elif old_std and old.get("season") == season and same_stage and sum(r["games"] for r in standings) < sum(r["games"] for r in old_std):
         print("standings: 公式の順位表が前回より古いので、前回の順位表のままにします")
         standings = old_std
     # レギュラーシーズンが全日程終わったか（選手の試合数の合計 = 各チームの予定試合数の合計）

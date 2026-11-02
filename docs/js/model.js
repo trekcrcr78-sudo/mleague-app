@@ -264,7 +264,11 @@ export function tableNo(m) { return Number(m.id.split("-").pop()); }
 export function standingsProgress() {
   const p = state.data.standingsProgress;
   if (!p?.tables?.length) return null;
-  return { day: p.day, prevDay: p.prevDay, tables: p.tables, single: p.tables.length === 1 };
+  // 前の開催日のうち、試合結果がそろっている最後の日（公式の更新が止まったときは prevDay より前になる）
+  const byDay = new Map();
+  for (const m of allMatches()) if (m.date < p.day) byDay.set(m.date, (byDay.get(m.date) ?? true) && m.games.length > 0);
+  const asOf = [...byDay].filter(([, ok]) => ok).map(([d]) => d).sort().at(-1) ?? null;
+  return { day: p.day, prevDay: asOf, tables: p.tables, single: p.tables.length === 1 };
 }
 
 // ---------- 今季の順位表の追加列 ----------
