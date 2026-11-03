@@ -2,16 +2,23 @@ name: Update M.League data
 
 on:
   schedule:
-    # 対局のある夜（19:00〜翌0:55 JST = 10:00〜15:55 UTC）は5分おき
-    - cron: "*/5 10-15 * * *"
-    # 毎日 3:00 JST にシーズン全月の日程を取り直す
+    # 対局のある夜: 1回起動したら翌0:55 JST まで中で5分おきに取り込む（GitHub の予定実行は間引かれることがあるため）。
+    # 起動のきっかけを3回用意（18:50 / 19:20 / 19:50 JST）。動いている間に来た分は待たされ、終わった後に何もせず終わる
+    - cron: "50 9 * * *"
+    - cron: "20 10 * * *"
+    - cron: "50 10 * * *"
+    # 毎日 3:00 JST にシーズン全体と過去シーズンを取り直す
     - cron: "0 18 * * *"
   workflow_dispatch:
     inputs:
       full:
-        description: "全月を取り直す"
+        description: "全体を取り直す（過去シーズンも）"
         type: boolean
         default: true
+      loop_minutes:
+        description: "0 より大きいと、その分数だけ5分おきの取り込みを繰り返す（試験用）"
+        type: string
+        default: "0"
 
 permissions:
   contents: write
@@ -23,7 +30,8 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # 対局の夜の繰り返しは最長 5時間50分（GitHub の上限 6時間に収める）
+    timeout-minutes: 355
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -32,16 +40,52 @@ jobs:
           cache: pip
           cache-dependency-path: scraper/requirements.txt
       - run: pip install -r scraper/requirements.txt
-      - name: Scrape
-        run: |
-          if [ "${{ github.event.schedule }}" = "0 18 * * *" ] || [ "${{ inputs.full }}" = "true" ]; then
-            python scraper/scrape.py --full
-          else
-            python scraper/scrape.py
-          fi
-      - name: Commit if changed
+      - name: Git user
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Full update (3:00 JST / manual)
+        if: github.event.schedule == '0 18 * * *' || (github.event_name == 'workflow_dispatch' && inputs.full && inputs.loop_minutes == '0')
+        run: |
+          python scraper/scrape.py --full
           git add docs/data.json docs/history.json
-          git diff --cached --quiet || (git commit -m "Update data" && git push)
+          git diff --cached --quiet || (git commit -q -m "Update data" && git push -q)
+
+      - name: Match-night loop (every 5 minutes until 0:55 JST)
+        if: (github.event_name == 'schedule' && github.event.schedule != '0 18 * * *') || (github.event_name == 'workflow_dispatch' && inputs.loop_minutes != '0')
+        env:
+          LOOP_MINUTES: ${{ inputs.loop_minutes }}
+        run: |
+          LOOP_MINUTES=${LOOP_MINUTES:-0}   # 予定実行のときは空
+          # 待たされて夜中・朝に始まった分は何もしない（1:00〜18:44 JST）
+          hm=$(TZ=Asia/Tokyo date +%H%M)
+          if [ "$LOOP_MINUTES" = "0" ]; then
+            if [ "$hm" -ge 0100 ] && [ "$hm" -lt 1845 ]; then echo "outside match hours ($hm JST)"; exit 0; fi
+            max=345
+          else
+            max=$LOOP_MINUTES
+          fi
+          deadline=$(( $(date +%s) + max * 60 ))
+          today=$(TZ=Asia/Tokyo date +%F)
+          # 今日の試合が日程にあるか（なければ1回だけ取り込んで終わる）
+          has_match() {
+            python -c "import json,sys; d=json.load(open('docs/data.json',encoding='utf-8')); sys.exit(0 if any(m['date']=='$today' for v in d['matchesByMonth'].values() for m in v) else 1)"
+          }
+          round=0
+          while true; do
+            round=$((round + 1))
+            git pull -q --rebase || true
+            python scraper/scrape.py || echo "round $round: scrape failed"
+            git add docs/data.json docs/history.json
+            if ! git diff --cached --quiet; then
+              git commit -q -m "Update data"
+              git push -q || (git pull -q --rebase && git push -q) || echo "round $round: push failed"
+            fi
+            if [ "$round" = 1 ] && [ "$LOOP_MINUTES" = "0" ] && ! has_match; then echo "no match today ($today)"; break; fi
+            hm=$(TZ=Asia/Tokyo date +%H%M)
+            if [ "$LOOP_MINUTES" = "0" ] && [ "$hm" -ge 0055 ] && [ "$hm" -lt 1800 ]; then echo "done for tonight ($hm JST)"; break; fi
+            if [ $(( $(date +%s) + 300 )) -gt "$deadline" ]; then echo "time limit"; break; fi
+            sleep 300
+          done
+          echo "rounds: $round"
