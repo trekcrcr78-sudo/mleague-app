@@ -17,7 +17,7 @@ from pathlib import Path
 
 from common import BASE, JST, TEAMS, fetch, fetch_text, name_key, season_label
 from parse_history import compute_standings, parse_team_page, parse_team_stage_points
-from parse_live import parse_month, parse_standings, parse_stats, season_months, stats_hrefs
+from parse_api import api_season, fetch_data, parse_api_games, parse_api_ranking, parse_api_stats
 from parse_wikipedia import (article_url, fetch_article_html, fetch_team_results_html, fetch_titles_html,
                              fetch_yakuman_html, parse_postseason, parse_season, parse_team_results, parse_titles,
                              parse_yakuman)
@@ -157,38 +157,24 @@ def standings_progress(now, by_month, standings, team_of, old):
 
 
 def scrape_current(now, full, old):
-    top = fetch("/")
-    stats_page = fetch("/stats/")
-    months = season_months(fetch("/games/"))
-    ym = {m: y for y, m in months}
-    year_of_month = lambda m: ym.get(m, now.year)
-
-    # 個人成績の一覧はレギュラーシーズン（成績ページの既定表示がポストシーズンに変わっても固定）
-    hrefs = stats_hrefs(stats_page)
-    href = hrefs.get("R")
-    players = parse_stats(fetch(href) if href and "season=" in href else stats_page)
-
-    # 今季のセミファイナル・ファイナルの個人成績は、毎日3時の全体更新のときだけ取り込む
-    # （前日分がそろった状態を「前日終了時点」としてまとめて切り替える）
-    if full:
-        postseason = {st: parse_stats(fetch(h)) for st, h in hrefs.items() if st in ("SF", "F")}
-        post_as_of = (now - timedelta(days=1)).date().isoformat() if postseason else None
-    else:
-        postseason, post_as_of = old.get("postseason") or {}, old.get("postseasonAsOf")
-
-    # 過去に取った月はそのまま使い、必要な月だけ取り直す
-    by_month = dict(old.get("matchesByMonth") or {})
-    targets = months if (full or not by_month) else [(now.year, now.month)]
-    if not full and now.day <= 2:  # 月初は前月末の結果が遅れて載ることがある
-        prev = now.replace(day=1) - timedelta(days=1)
-        targets = [(prev.year, prev.month)] + targets
-    for y, m in targets:
-        if (y, m) in months:
-            by_month[f"{y}-{m:02d}"] = parse_month(fetch(f"/games/?mly={y}&mlm={m}"), year_of_month)
+    # 公式サイトのデータ API から読む（画面の HTML は古い数字のまま、ブラウザの中で書き換える作りになったため）
+    games_d = fetch_data("games")
+    ranking_d = fetch_data("ranking")
+    stats_d = fetch_data("stats")
+    by_month = parse_api_games(games_d)
+    if not by_month and old.get("matchesByMonth"):
+        print("games: 公式の日程が空なので、前回の日程と結果のままにします")
+        by_month = old["matchesByMonth"]
+    # 個人成績の一覧はレギュラーシーズン
+    players = parse_api_stats(stats_d) if (stats_d.get("season") or {}).get("phase", "regular") == "regular" else []
+    if not players and old.get("players"):
+        players = old["players"]
+    # 今季のセミファイナル・ファイナルの個人成績（API での形はポストシーズンが始まったら確かめる。それまでは前回のまま）
+    postseason, post_as_of = old.get("postseason") or {}, old.get("postseasonAsOf")
 
     players, as_of = players_snapshot(players, by_month, old)
-    standings = parse_standings(top)
-    season = season_label(months[0][0] if months else now.year)
+    standings = parse_api_ranking(ranking_d, games_d)
+    season = season_label(api_season(ranking_d) or api_season(games_d) or now.year)
     old_std = old.get("standings") or []
     # 公式の順位表がおかしいときは前回の順位表のまま使う（メンテナンス中に空や古い順位表が返ってきたことがある）
     #  - 空、またはチームが欠けている
@@ -401,6 +387,15 @@ def scrape_history(now, data, old):
     archive_post = dict(old.get("archivePost") or {})
     if data.get("postseason"):
         archive_post[data["season"]] = data["postseason"]
+
+    # メンテナンス中などで公式のページが空だったときは、前回の内容のまま使う
+    if not players and old.get("players"):
+        print("history: 公式チームページの成績が空なので、前回のままにします")
+        players = old["players"]
+    if not team_stages and old.get("teamStages"):
+        print("history: 公式のステージ別ポイントが空なので、前回のままにします")
+        team_stages = old["teamStages"]
+        standings = old.get("standings") or standings
 
     return {
         "updatedAt": now.isoformat(timespec="seconds"),
