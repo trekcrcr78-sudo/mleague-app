@@ -76,13 +76,10 @@ def _table_no(m):
 def standings_progress(now, by_month, standings, team_of, old):
     """順位表に今日（直近の開催日）のどの半荘まで入っているかを卓ごとに数える。
 
-    公式の順位表は、半荘が終わるとその卓の4チームのポイントがまとめて動く。
-    （試合数は半荘の途中で増えるが、増える時点が卓によってまちまちなので判断には使わない）
-    卓ごとに見たことのあるポイントの状態を [起点, 1半荘後, 2半荘後] と記録し、今の状態がどれと同じかで数える。
-    新しい状態（4チームの増減の合計が0）が出たら次の半荘が終わったとみなす。前の状態に戻ったとき
-    （公式が一時的に古い順位表を返したとき）は数え直さない。
-    試合結果ページに結果が載っていれば、そこから計算したポイントと照らし合わせて確定させる。
-    照合がつかないとき（公式側の一時的なずれなど）は、最後に確認できた数のまま checking=True にする。
+    公式のデータ API には半荘ごとの結果が終わり次第載るので、
+    「前の開催日までの結果の合計 ＋ 今日その卓で終わった半荘のうち最初の k 個」が
+    順位表のポイントと一致する k を、卓ごとに毎回数え直す（前回の取り込みの記録には頼らない）。
+    一致しないとき（公式側の一時的なずれなど）は checking=True。
     """
     matches = [m for ms in by_month.values() for m in ms]
     ref = (now - timedelta(hours=6)).date().isoformat()  # 深夜（〜6時）は前日扱い
@@ -90,70 +87,36 @@ def standings_progress(now, by_month, standings, team_of, old):
     if not dates:
         return None
     day = dates[-1]
-    std = {r["team"]: r for r in standings}
-    op = old.get("standingsProgress") or {}
-    prev_tables = {}
-    if op.get("day") == day:
-        base, prev_tables = op["base"], {t["no"]: t for t in op["tables"]}
-    elif op and old.get("standings"):
-        # 新しい開催日: 前回の取り込み（前の開催日の試合が終わった後）の順位表が起点
-        base = {r["team"]: {"points": r["points"], "games": r["games"]} for r in old["standings"]}
-    else:
-        # 記録がまだ無いとき: 前の開催日までの試合結果から起点を作る
-        base = {t: {"points": 0.0, "games": 0} for t in std}
-        for m in matches:
-            if m["date"] < day:
-                for t in m["teams"]:
-                    base.setdefault(t, {"points": 0.0, "games": 0})["games"] += len(m["games"])
-                for g in m["games"]:
-                    for r in g["results"]:
-                        if team_of.get(r["name"]) in base:
-                            base[team_of[r["name"]]]["points"] += r["point"]
-        base = {t: {"points": round(v["points"], 1), "games": v["games"]} for t, v in base.items()}
+    std = {r["team"]: r["points"] for r in standings}
 
+    def add(bag, game):
+        for r in game["results"]:
+            t = team_of.get(r["name"])
+            if t:
+                bag[t] = bag.get(t, 0.0) + r["point"]
+
+    base = {}
+    for m in matches:
+        if m["date"] < day:
+            for g in m["games"]:
+                add(base, g)
     on_day = sorted((m for m in matches if m["date"] == day), key=_table_no)
     playing = {t for m in on_day for t in m["teams"]}
-    # 今日試合のないチームは起点から変わらないはず（変わっていれば公式側がずれている）
-    global_check = any(t not in playing and (r["games"] != base.get(t, {}).get("games") or not _same(r["points"], base.get(t, {}).get("points")))
-                       for t, r in std.items())
+    # 今日試合のないチームは、前の開催日までの結果の合計と同じはず（違えば公式側がずれている）
+    global_check = any(t not in playing and not _same(p, base.get(t, 0.0)) for t, p in std.items())
     tables = []
     for m in on_day:
-        prev = prev_tables.get(_table_no(m))
-        cur = {t: std[t]["points"] if t in std else None for t in m["teams"]}
-        checking = global_check
-        start = {t: base.get(t, {}).get("points") for t in m["teams"]}
-        if prev and "states" in prev:
-            states = prev["states"]
-        elif prev:                       # 以前の形式（last のみ）からの引き継ぎ
-            states = [start] + [None] * max(prev["reflected"] - 1, 0) + ([prev["last"]] if prev["reflected"] else [])
-        else:
-            states = [start]
-        same_as = lambda s: s is not None and all(_same(cur[t], s.get(t)) for t in m["teams"])
-        seen = [k for k, s in enumerate(states) if same_as(s)]
-        if seen:
-            reflected = seen[-1]
-            checking = checking or reflected < len(states) - 1   # 前の状態に戻った（公式の一時的な巻き戻り）
-        else:
-            last = states[-1] or start
-            diffs = [(cur[t] or 0) - (last.get(t) or 0) for t in m["teams"]]
-            if abs(sum(diffs)) < 0.25 and len(states) < 3:   # 1半荘分の動き（4チームの増減の合計は0）
-                states = states + [cur]
-            else:                                            # 4チームの一部だけ更新された途中の状態など
-                checking = True
-            reflected = len(states) - 1
-        # 試合結果ページで確かめる（遅れて載るので、載っていればそれで確定）
-        if m["games"]:
-            expected = {t: base.get(t, {}).get("points", 0) for t in m["teams"]}
-            for g in m["games"]:
-                for r in g["results"]:
-                    if team_of.get(r["name"]) in expected:
-                        expected[team_of[r["name"]]] += r["point"]
-            n = len(m["games"])
-            if all(_same(cur[t], expected[t]) for t in m["teams"]):
-                reflected, checking = n, global_check
-                states = (states[:n] + [None] * (n - len(states)) + [cur])[:n + 1]
-        tables.append({"no": _table_no(m), "reflected": min(reflected, 2), "checking": checking, "states": states})
-    return {"day": day, "prevDay": dates[-2] if len(dates) > 1 else None, "base": base, "tables": tables}
+        games = sorted(m["games"], key=lambda g: g["no"])
+        reflected, checking = len(games), True
+        for k in range(len(games), -1, -1):
+            expected = dict(base)
+            for g in games[:k]:
+                add(expected, g)
+            if all(_same(std.get(t), expected.get(t, 0.0)) for t in m["teams"]):
+                reflected, checking = k, False
+                break
+        tables.append({"no": _table_no(m), "reflected": min(reflected, 2), "checking": checking or global_check})
+    return {"day": day, "prevDay": dates[-2] if len(dates) > 1 else None, "tables": tables}
 
 
 def scrape_current(now, full, old):
