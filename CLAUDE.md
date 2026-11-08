@@ -40,8 +40,10 @@
   過去シーズン用のチームページなどは今も HTML から読む。
 
 ## 技術メモ
-- 画面: docs/（GitHub Pages）。データ取得: scraper/（GitHub Actions。試合の夜は18:50ごろに1回起動して翌0:55まで中で5分おきに繰り返す。毎日3時に全体更新）。
-  GitHub の予定実行は間引かれるので、5分おきの予定実行には頼らない（2026年10月11日から1日2〜3回に減った）。
+- 画面: docs/（GitHub Pages）。データ取得: scraper/（GitHub Actions）。
+  試合の夜（19:00〜0:55）は外部の cron-job.org が5分おきに workflow_dispatch（full=false, loop_minutes=1）で起動する。毎日3時に全体更新。
+  GitHub の予定実行は数時間遅れたり間引かれたりするので頼らない（2026年10月11日から1日2〜3回、11月は5〜6時間遅れ）。
+  cron-job.org 用の GitHub トークン（Actions の Read and write だけ）は 2027/06/30 で期限切れ。来シーズン前に作り直す。
 - 画面のファイルを変えたら docs/sw.js の CACHE の番号を1つ上げる。
 - 手元で確認するときは、キャッシュしないローカルサーバーで開く。スマホ幅（375px）でも確認する。
 - 確認のために docs/data.json を書き換えたら、必ず元に戻す。docs/data.json と docs/history.json は手元から公開しない（自動更新に任せる）。
