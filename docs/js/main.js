@@ -30,9 +30,16 @@ function render() {
   if (!state.data) return;
   hideTooltip();
   const scrolls = [...content.querySelectorAll(".chips")].map(r => r.scrollLeft);
+  // 描き直すと一瞬ページが短くなり（グラフは後から描く）表示位置が上にずれるので、縦の位置を覚えて戻す
+  const y = window.scrollY;
+  content.style.minHeight = content.offsetHeight + "px";
   content.replaceChildren(...[v.render()].flat(Infinity).filter(Boolean), h("p", { class: "app-footer" }, "非公式・個人運営のファンアプリです。データの権利は各権利者に帰属します。"));
   keepChipsInView(scrolls);
+  const beforeAfter = window.scrollY;
   v.after?.();
+  const movedOnPurpose = window.scrollY !== beforeAfter;   // 日程の「今日」へのスクロールなどはそのまま
+  content.style.minHeight = "";
+  if (!movedOnPurpose && window.scrollY !== y) window.scrollTo({ top: y });
 }
 
 // 横スクロールのボタン列: 描き直しても位置を保ち、選択中のボタンが隠れていれば見える位置まで寄せる
@@ -49,8 +56,8 @@ function keepChipsInView(prev) {
 
 // 状態が変わったら描き直す（データ更新時は開いているシートも）
 subscribe(patch => {
-  if ("tab" in patch) window.scrollTo({ top: 0 });
   render();
+  if ("tab" in patch) window.scrollTo({ top: 0 });   // タブを切り替えたときは一番上から
   if ("data" in patch || "history" in patch || "fav" in patch) redrawSheet();
   if ("data" in patch) renderUpdated();
 });
