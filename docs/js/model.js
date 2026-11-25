@@ -203,11 +203,11 @@ export function progression() {
   return points;
 }
 
+// グラフで色付けするチーム。選んだもの（全部外した＝色付けなし も含めて）をそのまま使う。
+// まだ選んでいないときは推しチームだけ（推しチームがなければ色付けなし）
 export function chartSelection() {
-  if (Array.isArray(state.chartTeams) && state.chartTeams.length) return state.chartTeams;
-  const sel = state.fav ? [state.fav] : [];
-  for (const r of state.data.standings) { if (sel.length >= 3) break; if (!sel.includes(r.team)) sel.push(r.team); }
-  return sel;
+  if (Array.isArray(state.chartTeams)) return state.chartTeams.filter(t => state.data.teams[t]);
+  return state.fav ? [state.fav] : [];
 }
 
 // ---------- 個人タイトル（Wikipedia「Mリーグ」個人タイトル） ----------
