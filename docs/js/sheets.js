@@ -27,6 +27,7 @@ function show(renderFn) {
   const wasOpen = !$("#sheet").hidden;
   current = renderFn;
   stack.length = 0;
+  $(".sheet__panel").style.minHeight = "";
   redrawSheet();
   if (!wasOpen) lockBackground();
   $("#sheet").hidden = false;
@@ -40,6 +41,8 @@ export function redrawSheet() {
 function showOver(renderFn) {
   const panel = $(".sheet__panel");
   stack.push({ fn: current, scroll: panel.scrollTop });
+  // 重ねた画面が短くても後ろの画面が見えないよう、元の画面と同じ高さで出す
+  panel.style.minHeight = panel.offsetHeight + "px";
   current = renderFn;
   redrawSheet();
   history.pushState({ sheet: true, over: true }, "");
@@ -51,6 +54,7 @@ export function closeSheet(fromPop) {
   if ($("#sheet").hidden) return;
   if (stack.length) {
     const prev = stack.pop();
+    if (!stack.length) $(".sheet__panel").style.minHeight = "";
     current = prev.fn;
     redrawSheet();
     $(".sheet__panel").scrollTop = prev.scroll;
@@ -59,6 +63,7 @@ export function closeSheet(fromPop) {
   }
   $("#sheet").hidden = true;
   current = null;
+  $(".sheet__panel").style.minHeight = "";
   unlockBackground();
   if (!fromPop && history.state?.sheet) history.back();
 }
