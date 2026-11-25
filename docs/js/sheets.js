@@ -1,17 +1,21 @@
 // 下から出てくる詳細シート（試合・選手・チーム）
 
 import { actions } from "./actions.js";
-import { asOfLine, awardValue, gameBlock, note, playerLink, resultCard, sourceNote, stat, teamLink, teamTag, titleBadges } from "./components.js";
+import { asOfLine, awardValue, gameBlock, note, playerLink, sourceNote, stat, teamLink, teamTag, titleBadges } from "./components.js";
 import { $, h, pressable, segmented } from "./dom.js";
 import { dayLabel, dec2, int, pct, pt, ptClass } from "./format.js";
-import { aggregate, allMatches, currentPlayer, isActive, playerLog, postseasonRows, seasonRows, STAGE_NAME, borderRace, teamCareerRows, teamName, teamOfPlayer, teamPostRows, teamSeasonRanks, teamShort, teamTotal, titlesOf, yakumanOf } from "./model.js";
+import { aggregate, allMatches, currentPlayer, isActive, playerLog, postseasonRows, seasonRows, STAGE_NAME, borderRace, teamCareerRows, teamName, teamOfPlayer, teamPostRows, tableNo, teamSeasonRanks, teamShort, teamTotal, titlesOf, yakumanOf } from "./model.js";
 import { set, setFav, state } from "./store.js";
 
 let current = null; // 開いているシートの描画関数（データ更新時に描き直す）
+// シートの上に重ねて開いた画面（チームの対局履歴 → その半荘の結果）。閉じると1つ前に戻る
+const stack = [];
+let skipPop = false;
 
 function show(renderFn) {
   const wasOpen = !$("#sheet").hidden;
   current = renderFn;
+  stack.length = 0;
   redrawSheet();
   $("#sheet").hidden = false;
   document.body.style.overflow = "hidden";
@@ -21,8 +25,27 @@ function show(renderFn) {
 export function redrawSheet() {
   if (current) $("#sheet-body").replaceChildren(...[current()].flat(Infinity).filter(Boolean));
 }
+// 今のシートの上に重ねて開く（閉じる・戻るで今のシートに戻る）
+function showOver(renderFn) {
+  const panel = $(".sheet__panel");
+  stack.push({ fn: current, scroll: panel.scrollTop });
+  current = renderFn;
+  redrawSheet();
+  history.pushState({ sheet: true, over: true }, "");
+  panel.scrollTop = 0;
+}
+
 export function closeSheet(fromPop) {
+  if (fromPop && skipPop) { skipPop = false; return; }
   if ($("#sheet").hidden) return;
+  if (stack.length) {
+    const prev = stack.pop();
+    current = prev.fn;
+    redrawSheet();
+    $(".sheet__panel").scrollTop = prev.scroll;
+    if (!fromPop && history.state?.over) { skipPop = true; history.back(); }
+    return;
+  }
   $("#sheet").hidden = true;
   current = null;
   document.body.style.overflow = "";
@@ -179,8 +202,8 @@ function rankStats(c, { points = false } = {}) {
 function teamSeason(t, favBtn, tabs) {
   const row = state.data.standings.find(r => r.team === t);
   const members = state.data.players.filter(p => p.team === t).sort((a, b) => b.points - a.points);
-  const recent = allMatches().filter(m => m.games.length && m.teams.includes(t)).reverse().slice(0, 5);
   const ranks = teamSeasonRanks(t);
+  const log = teamLog(t);
   return [
     hero(teamName(t), row ? `${row.rank}位・${row.games}/${row.totalGames}試合` : "", row?.points, "ポイント"),
     favBtn,
@@ -193,8 +216,36 @@ function teamSeason(t, favBtn, tabs) {
       h("span", { class: "prow__rank" }, ""),
       h("div", {}, h("div", { class: "prow__name" }, p.name), h("div", { class: "prow__meta" }, `${int(p.games)}試合・平均着順 ${dec2(p.avgRank)}`)),
       h("div", { class: "prow__val " + ptClass(p.points) }, pt(p.points)))))),
-    recent.length ? [h("h3", { class: "section-title" }, "直近の試合"), recent.map(m => resultCard(m))] : null,
+    h("h3", { class: "section-title" }, `対局履歴（今季${log.length}半荘）`),
+    log.length ? h("section", { class: "card" }, h("table", { class: "log team-log" }, h("tbody", {}, log.map(r => h("tr", { ...pressable(() => openGame(r.m, r.g)) },
+      h("td", {}, `${dayLabel(r.m.date)} 第${r.g.no}回戦`),
+      h("td", { class: "team-log__name" }, r.name),
+      h("td", { class: r.rank === 1 ? "r1" : "" }, `${r.rank}着`),
+      h("td", { class: ptClass(r.point) }, pt(r.point), h("span", { class: "team-log__more", "aria-hidden": "true" }, "›")))))))
+      : h("p", { class: "empty" }, "まだ対局がありません"),
   ];
+}
+
+// チームの今季の全半荘（新しい順）。出場した選手・着順・ポイント
+function teamLog(t) {
+  const rows = [];
+  for (const m of allMatches()) {
+    if (!m.teams.includes(t)) continue;
+    for (const g of [...m.games].sort((a, b) => a.no - b.no)) {
+      const r = g.results.find(x => teamOfPlayer(x.name) === t);
+      if (r) rows.push({ m, g, name: r.name, rank: r.rank, point: r.point });
+    }
+  }
+  return rows.reverse();
+}
+
+// 1半荘の結果（4人の着順・選手・チーム・ポイント）。チームの画面の上に重ねて開く
+function openGame(m, g) {
+  const tables = allMatches().filter(x => x.date === m.date).length;
+  showOver(() => [
+    hero(`${dayLabel(m.date)} ${tables > 1 ? `${tableNo(m)}卓目 ` : ""}第${g.no}回戦`),
+    gameBlock(g),
+  ]);
 }
 
 // セミファイナル争い（6位以内の進出ライン）
