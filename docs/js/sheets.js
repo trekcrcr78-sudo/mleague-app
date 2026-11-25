@@ -12,13 +12,24 @@ let current = null; // 開いているシートの描画関数（データ更新
 const stack = [];
 let skipPop = false;
 
+// シートを開いている間は後ろの画面をその位置で固定する（行を押したときにブラウザが後ろごとスクロールしないように）
+let lockedY = 0;
+function lockBackground() {
+  lockedY = window.scrollY;
+  Object.assign(document.body.style, { position: "fixed", top: `-${lockedY}px`, left: "0", right: "0", overflow: "hidden" });
+}
+function unlockBackground() {
+  Object.assign(document.body.style, { position: "", top: "", left: "", right: "", overflow: "" });
+  window.scrollTo({ top: lockedY });
+}
+
 function show(renderFn) {
   const wasOpen = !$("#sheet").hidden;
   current = renderFn;
   stack.length = 0;
   redrawSheet();
+  if (!wasOpen) lockBackground();
   $("#sheet").hidden = false;
-  document.body.style.overflow = "hidden";
   if (!wasOpen) history.pushState({ sheet: true }, "");
   $(".sheet__panel").scrollTop = 0;
 }
@@ -48,7 +59,7 @@ export function closeSheet(fromPop) {
   }
   $("#sheet").hidden = true;
   current = null;
-  document.body.style.overflow = "";
+  unlockBackground();
   if (!fromPop && history.state?.sheet) history.back();
 }
 
