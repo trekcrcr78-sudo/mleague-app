@@ -80,7 +80,7 @@ export function playerLog(name) {
   const rows = [];
   for (const m of allMatches()) {
     if (asOf && m.date > asOf) continue;
-    for (const g of m.games) for (const r of g.results) if (r.name === name) rows.push({ date: m.date, no: g.no, ...r });
+    for (const g of m.games) for (const r of g.results) if (r.name === name) rows.push({ date: m.date, no: g.no, ...r, match: m, game: g });
   }
   return rows.reverse();
 }

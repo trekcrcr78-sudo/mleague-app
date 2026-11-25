@@ -105,8 +105,9 @@ function playerSeason(name, team, tabs) {
       stat("リーチ率", pct(p.riichiRate)), stat("副露率", pct(p.furoRate))),
     h("div", { class: "ranks" }, [1, 2, 3, 4].map(k => h("div", {}, h("b", {}, int(p["r" + k])), h("span", {}, `${k}着`)))),
     h("h3", { class: "section-title" }, "対局履歴"),
-    log.length ? h("section", { class: "card" }, h("table", { class: "log" }, h("tbody", {}, log.map(r => h("tr", {},
-      h("td", {}, `${dayLabel(r.date)} 第${r.no}回戦`), h("td", {}, `${r.rank}着`), h("td", { class: ptClass(r.point) }, pt(r.point)))))))
+    log.length ? h("section", { class: "card" }, h("table", { class: "log team-log" }, h("tbody", {}, log.map(r => h("tr", { ...pressable(() => openGame(r.match, r.game)) },
+      h("td", {}, `${dayLabel(r.date)} 第${r.no}回戦`), h("td", { class: r.rank === 1 ? "r1" : "" }, `${r.rank}着`),
+      h("td", { class: ptClass(r.point) }, pt(r.point), h("span", { class: "team-log__more", "aria-hidden": "true" }, "›")))))))
       : h("p", { class: "empty" }, "まだ対局がありません"),
   ];
 }
